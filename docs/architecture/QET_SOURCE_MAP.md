@@ -126,6 +126,59 @@ ninja
 
 Pendiente: compilar QElectroTech original en esta PC después de instalar/reparar dependencias.
 
+## Resultado de compilación local
+
+Confirmado el `2026-08-19`:
+
+- Se actualizó `msys2-keyring`.
+- Se instalaron dependencias Qt5/MSYS2 UCRT64 necesarias para compilar.
+- Se ejecutó una actualización completa de MSYS2 porque `cmake.exe` buscaba `libjsoncpp-27.dll` pero el sistema tenía `libjsoncpp-26.dll`.
+- Después de la actualización, `cmake --version` respondió correctamente con `4.4.2`.
+- La configuración CMake fue exitosa en `build/jw-qet-qt5-nokf`.
+- La compilación con Ninja terminó correctamente y generó `build/jw-qet-qt5-nokf/qelectrotech.exe`.
+- La prueba no interactiva `qelectrotech.exe --version` respondió `0.200.1-dev`.
+
+Configuración usada:
+
+```bash
+cmake -S . -B build/jw-qet-qt5-nokf -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja.exe \
+  -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+  -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+  -DCMAKE_PREFIX_PATH=/ucrt64 \
+  -DQt5_DIR=/ucrt64/lib/cmake/Qt5 \
+  -DQT_VERSION_MAJOR=5 \
+  -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON \
+  -DCMAKE_DISABLE_FIND_PACKAGE_Git=ON \
+  -DFETCHCONTENT_SOURCE_DIR_PUGIXML=C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/pugixml \
+  -DFETCHCONTENT_SOURCE_DIR_SINGLEAPPLICATION=C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication \
+  -DPACKAGE_TESTS=OFF \
+  -DBUILD_WITH_KF=OFF \
+  -DCMAKE_POLICY_DEFAULT_CMP0077=NEW \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DQET_EXPORT_PROJECT_DB=ON \
+  -DSQLite3_INCLUDE_DIR=/ucrt64/include \
+  -DSQLite3_LIBRARY=/ucrt64/lib/libsqlite3.dll.a
+```
+
+Compilación:
+
+```bash
+ninja -C build/jw-qet-qt5-nokf
+```
+
+Notas:
+
+- `BUILD_WITH_KF=OFF` usa las alternativas `sources/ui/nokde/*`. Fue necesario para esta primera compilación Qt5 porque MSYS2 UCRT64 instaló KDE Frameworks 6, no KF5.
+- `CMAKE_DISABLE_FIND_PACKAGE_Git=ON` fue necesario en esta sesión porque CMake intentó ejecutar `git submodule update --init --recursive` y escribir en `.git/modules/...`, ruta bloqueada por el sandbox. Como los submódulos ya estaban presentes, se pasaron rutas locales de `pugixml` y `SingleApplication`.
+- CMake declara `PROJECT_VERSION 0.100.1`, pero la versión runtime sale de `sources/qetversion.cpp` y actualmente es `0.200.1-dev`.
+- La generación de traducciones modificó archivos binarios `.qm` en `lang/`. Esos cambios son artefactos de build y no deben mezclarse con cambios funcionales.
+- Al abrir `qelectrotech.exe` directamente desde Explorer aparecieron errores por DLLs ausentes (`Qt5Concurrent.dll`, `Qt5Core.dll`, `libstdc++-6.dll`, `libgcc_s_seh-1.dll`). La causa no era un fallo de compilación, sino que el ejecutable depende de DLLs de MSYS2 UCRT64 que no están en el `PATH` de Explorer.
+- Se ejecutó `windeployqt-qt5.exe --release --compiler-runtime --no-angle --force build/jw-qet-qt5-nokf/qelectrotech.exe` para copiar DLLs Qt, plugins y runtime MinGW al directorio del build.
+- Se copió manualmente `libsqlite3-0.dll` al directorio del build porque QET enlaza SQLite directamente.
+- Se creó `build/jw-qet-qt5-nokf/run-qelectrotech.bat` como launcher local. El launcher agrega el directorio del build y `C:\msys64\ucrt64\bin` al `PATH`, arranca con working directory en la raíz del repo y pasa rutas explícitas para `elements`, `titleblocks` y `lang`.
+
 ## Primeros archivos a inspeccionar
 
 Para trabajo incremental, estos son los archivos iniciales confirmados:
@@ -483,6 +536,144 @@ Implicación para colaboración:
 - La granularidad del stack es por proyecto; para colaboración por folio habrá que filtrar o agrupar por `Diagram`.
 - Algunas operaciones son claramente de folio; otras son de proyecto o pueden tocar referencias cruzadas entre folios.
 
+## Experimento local de merge por folio
+
+Archivos de prueba revisados el 2026-08-19:
+
+- `C:\Users\jeykc\Documentos\Proyecto_Base.qet`: proyecto base con dos folios, cada uno con un recuadro.
+- `C:\Users\jeykc\Documentos\Proyecto_01.qet`: edición del folio 1; el folio 2 permanece estructuralmente igual al base.
+- `C:\Users\jeykc\Documentos\Proyecto_02.qet`: edición del folio 2; el folio 1 permanece estructuralmente igual al base.
+- `C:\Users\jeykc\Documentos\Proyecto_Merge_01_02.qet`: archivo generado para prueba, combinando folio 1 desde `Proyecto_01.qet` y folio 2 desde `Proyecto_02.qet`.
+
+Resultado confirmado por inspección XML:
+
+- `Proyecto_01.qet` agrega un elemento en el folio 1:
+  `embed://import/10_electric/10_allpole/110_network_supplies/3_pen_pravy.elmt`.
+- `Proyecto_02.qet` agrega un elemento en el folio 2:
+  `embed://import/10_electric/10_allpole/130_terminals_terminal_strips/barre_interconnexion_tn.elmt`.
+- El archivo merge contiene ambos folios modificados y conserva dos nodos `<diagram>`.
+- El folio 1 del merge es estructuralmente equivalente al folio 1 de `Proyecto_01.qet`.
+- El folio 2 del merge es estructuralmente equivalente al folio 2 de `Proyecto_02.qet`.
+- El merge debe incluir también los elementos embebidos correspondientes dentro de `/project/collection`; reemplazar solo `<diagram>` no basta.
+
+Conclusión del experimento:
+
+- Para ediciones simples e independientes, el contenido del folio se puede fusionar a nivel de nodo `<diagram>` sin cambiar el formato `.qet`.
+- La primera capa de colaboración por folio no debe tratar el folio como unidad totalmente aislada; debe calcular también dependencias globales del proyecto, especialmente `<collection>`.
+- Este experimento apoya la viabilidad de una primera iteración conservadora: detectar el folio modificado, reemplazar ese `<diagram>` en una copia base/controlada y fusionar dependencias globales necesarias.
+- Aún no queda resuelto el caso de conflictos globales: título del proyecto, propiedades, autonumeraciones, borneras, referencias cruzadas, plantillas de cartucho, reordenamiento o eliminación de folios.
+
+## Experimento local con conductores
+
+Archivos de prueba revisados el 2026-08-19:
+
+- `C:\Users\jeykc\Documentos\Conexion_Base.qet`: proyecto base con dos folios.
+- `C:\Users\jeykc\Documentos\Conexion_01.qet`: edición del folio 1; contiene dos elementos `3_pen_pravy.elmt` y cuatro conductores.
+- `C:\Users\jeykc\Documentos\Conexion_02.qet`: edición del folio 2; contiene dos elementos `src_1pn.elmt` y dos conductores.
+- `C:\Users\jeykc\Documentos\GitHub\qelectrotech-source-mirror\build\qet-merge-tests\Conexion_Merge_Tool_01_02.qet`: archivo generado por la herramienta de merge.
+
+Resultado confirmado por inspección XML y por `tools/qet_folio_merge.py analyze`:
+
+- El merge conserva `Conexion_Base` como raíz global del proyecto.
+- El folio `order:1` del merge queda estructuralmente equivalente al folio 1 de `Conexion_01.qet`.
+- El folio `order:2` del merge queda estructuralmente equivalente al folio 2 de `Conexion_02.qet`.
+- `/project/collection` contiene los dos elementos embebidos necesarios: `3_pen_pravy.elmt` y `src_1pn.elmt`.
+- Todos los conductores del merge fueron validados como `ok` por la herramienta: 4 en el folio 1 y 2 en el folio 2.
+
+Validación posterior desde QET:
+
+- El usuario abrió `Conexion_Merge_Tool_01_02.qet` desde el build del repo y confirmó visualmente que ambos folios estaban operativos.
+- El archivo fue guardado desde QET como `C:\Users\jeykc\Documentos\GitHub\qelectrotech-source-mirror\build\qet-merge-tests\Conexion_Merge_Guardado_QET.qet`.
+- Al comparar una salida fresca de la herramienta (`Conexion_Merge_Tool_01_02_Fresh.qet`) contra el archivo guardado por QET:
+  - los elementos del folio `order:1` siguen siendo equivalentes por UUID, tipo y posición;
+  - los conductores del folio `order:1` siguen siendo equivalentes por endpoints;
+  - los elementos del folio `order:2` siguen siendo equivalentes por UUID, tipo y posición;
+  - los conductores del folio `order:2` siguen siendo equivalentes por endpoints;
+  - todos los conductores del archivo guardado siguen siendo válidos.
+- QET reordena algunos nodos internos al guardar, por lo que una comparación estructural estricta de XML puede cambiar aunque la semántica del folio se conserve.
+- QET también amplió `/project/collection` con elementos embebidos adicionales relacionados: `act_termique_no_esclave.elmt`, `act_thermique_nf_esclave.elmt`, `comm_thermique.elmt`, `dis_mag_term_4f-1.elmt` y `fa4202_disjoncteur_moteur_3p.elmt`.
+- La colección guardada por QET sigue siendo un superset de la colección mínima generada por la herramienta.
+
+Observación importante sobre conductores:
+
+- Los nodos `<conductor>` modernos referencian `element1`, `terminal1`, `element2` y `terminal2`.
+- `element1` y `element2` apuntan a UUIDs de instancias `<element>` dentro del mismo folio.
+- `terminal1` y `terminal2` apuntan a UUIDs de terminal definidos dentro de la definición embebida del elemento en `/project/collection`.
+- Por eso, un merge por folio que incluya conductores debe fusionar también la colección embebida relacionada; copiar solo el nodo `<diagram>` puede dejar referencias incompletas.
+
+Conclusión del experimento:
+
+- La estrategia de reemplazar folios completos es viable también para conductores locales al folio, siempre que sus elementos embebidos se conserven en `/project/collection`.
+- La herramienta offline ya puede detectar si un conductor queda apuntando a un elemento inexistente o a un terminal embebido inexistente.
+
+## Herramienta inicial de análisis/merge
+
+Archivo agregado:
+
+- `tools/qet_folio_merge.py`
+- `tools/qet_collab_session.py`
+
+Función:
+
+- Analiza proyectos `.qet` sin modificar QElectroTech.
+- Identifica folios por `order` de forma predeterminada, con fallback opcional por posición.
+- Calcula una huella estructural de cada `<diagram>` ignorando diferencias de indentación/orden textual no relevantes.
+- Detecta qué folios cambiaron contra un archivo base.
+- Rechaza el merge si dos variantes modifican el mismo folio con contenido distinto.
+- Fusiona de forma aditiva `/project/collection` para conservar elementos embebidos requeridos por los folios importados.
+- Valida endpoints de conductores contra elementos del folio y terminales de elementos embebidos cuando están disponibles en `/project/collection`.
+- Conserva las secciones globales desde el archivo base, pero reporta diferencias globales como advertencias.
+- Crea sesiones colaborativas offline con `checkout`, `submit` y `merge`, usando manifiestos sidecar `.jwqet.json` para mapear maestro, baseline, copia local y entrega sin tocar el formato `.qet`.
+
+Comandos usados en esta PC:
+
+```powershell
+C:\msys64\ucrt64\bin\python.exe tools\qet_folio_merge.py analyze C:\Users\jeykc\Documentos\Proyecto_Base.qet C:\Users\jeykc\Documentos\Proyecto_01.qet C:\Users\jeykc\Documentos\Proyecto_02.qet
+```
+
+```powershell
+C:\msys64\ucrt64\bin\python.exe tools\qet_folio_merge.py merge --base C:\Users\jeykc\Documentos\Proyecto_Base.qet --output build\qet-merge-tests\Proyecto_Merge_Tool_01_02.qet --force C:\Users\jeykc\Documentos\Proyecto_01.qet C:\Users\jeykc\Documentos\Proyecto_02.qet
+```
+
+Prueba agregada:
+
+- `tests/qet_folio_merge_test.py`
+- `tests/qet_collab_session_test.py`
+- Ejecutada con:
+
+```powershell
+C:\msys64\ucrt64\bin\python.exe -m unittest tests\qet_folio_merge_test.py tests\qet_collab_session_test.py
+```
+
+Resultado de validación:
+
+- `analyze` detecta que `Proyecto_01.qet` cambia `order:1`.
+- `analyze` detecta que `Proyecto_02.qet` cambia `order:2`.
+- `merge` genera `build\qet-merge-tests\Proyecto_Merge_Tool_01_02.qet`.
+- El output contiene los dos folios modificados y dos elementos embebidos en `/project/collection`.
+- El archivo fue abierto y guardado nuevamente desde QElectroTech como `build\qet-merge-tests\Proyecto_Merge_Guardado_QET.qet`.
+- Después de guardar desde QET, los dos folios siguen siendo equivalentes al output de la herramienta.
+- Después de guardar desde QET, `/project/collection` sigue siendo equivalente al output de la herramienta.
+- QET normaliza algunos detalles no funcionales al guardar:
+  - puede omitir `<elementInformations/>` vacío en elementos;
+  - puede cambiar saltos de línea dentro de textos de metadatos de elementos embebidos;
+  - actualiza/normaliza secciones globales como `<properties>`, `<usage>` y `<newdiagrams>`.
+- Las pruebas unitarias mínimas pasan y cubren merge de folios distintos, rechazo de conflicto en el mismo folio, normalizaciones observadas al guardar desde QET, validación de endpoints de conductores y flujo colaborativo `checkout`/`submit`/`merge` con manifiestos.
+
+Nota de ejecución en Windows:
+
+- Si el `.qet` se abre con doble clic, Windows puede usar la instalación local de QElectroTech en `C:\Program Files\QElectroTech\bin\qelectrotech.exe`.
+- En esta PC esa instalación reporta una versión anterior (`0.100.0`), por lo que muestra un aviso al abrir archivos guardados como `0.200.1`.
+- Para validar el fork compilado, abrir los proyectos desde `build\jw-qet-qt5-nokf\run-qelectrotech.bat` o ejecutar directamente el binario del build con los argumentos de rutas comunes.
+
+Límites actuales de la herramienta:
+
+- No resuelve reordenamiento, creación o eliminación de folios.
+- No resuelve conflictos globales; solo los reporta.
+- No elimina elementos embebidos no usados.
+- No introduce IDs persistentes de folio.
+- No debe considerarse todavía un mecanismo de colaboración en vivo; es una herramienta de verificación y merge offline.
+
 ## Primeras conclusiones
 
 Confirmado:
@@ -507,18 +698,16 @@ Viabilidad inicial:
 
 - Sí es viable empezar con colaboración controlada por folio, sin edición simultánea del mismo folio.
 - La estrategia inicial debería bloquear folios completos y serializar cambios por folio, manteniendo un merge conservador sobre el XML del proyecto.
-- Antes de implementar locks o servidor, el siguiente paso técnico debería ser compilar el QElectroTech original y luego crear pruebas/herramientas mínimas para comparar `Diagram::toXml()` contra nodos `<diagram>` reales.
+- Antes de implementar locks o servidor, el siguiente paso técnico debería ser formalizar pruebas/herramientas mínimas para detectar folios cambiados, fusionar `<diagram>` y fusionar dependencias globales conocidas.
+- Flujo operativo MVP elegido: carpeta compartida tipo Google Drive con maestro publicado y copias locales por usuario; GitHub queda para versionar el código del fork y posible respaldo posterior. La herramienta puente es `tools/qet_collab_session.py`. Ver `docs/collaboration/JW_QET_MVP_WORKFLOW.md`.
+- Validación local del MVP completada en `build\qet-collab-mvp`: una ronda exitosa publicó `JW_QET_COLLAB\04_PUBLISHED\Proyecto_Publicado.qet`; una ronda conflictiva en `JW_QET_CONFLICT` rechazó publicar cuando dos usuarios modificaron el mismo folio.
+- Workspace real de Google Drive configurado en `H:\Mi unidad\01_JW_CONTROL\04_PRODUCTOS\03_ACTIVOS\JWPLC_LAUNDRY\03_IMPLEMENTACIONES_CLIENTE\2026-008_KOKETA\02_DIAGRAMA_ELECTRICO\JW_QET_COLLAB`, con maestro inicial en `00_MASTER\Proyecto.qet` y copia de trabajo para `jeykc` en `02_WORKING\jeykc`.
+- Primer puente UI agregado en `QETDiagramEditor`: `Archivo > Crear copia de trabajo colaborativa...` ejecuta `checkout` y abre la copia local; `Archivo > Entregar cambios colaborativos...` guarda el proyecto activo y ejecuta `submit`. La fusion/publicacion sigue fuera de QET en esta iteracion.
 
 ## Siguientes pasos propuestos
 
-1. Reparar/instalar dependencias de MSYS2 UCRT64 y compilar QElectroTech original sin cambios funcionales.
-2. Confirmar en una muestra `.qet` real cómo se ven:
-   - `<project>`
-   - `<diagram order="...">`
-   - UUIDs de elementos
-   - UUIDs de terminales
-   - conductores por endpoints
-   - colección embebida
+1. Validar desde QET el checkout y submit contra la carpeta real de Google Drive.
+2. Probar casos reales adicionales: textos, referencias cruzadas, autonumeración y borneras.
 3. Revisar si existe alguna capa ya hecha para exportar/importar folios individuales desde UI o CLI.
 4. Definir una propuesta mínima de ID persistente de folio o metadata externa, sin romper compatibilidad `.qet`.
 5. Recién después, diseñar el primer mecanismo de prevención de sobrescritura por folio.

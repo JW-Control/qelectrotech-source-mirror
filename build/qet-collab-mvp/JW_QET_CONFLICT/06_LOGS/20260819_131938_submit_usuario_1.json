@@ -1,0 +1,20 @@
+{
+  "schema": "jw-qet-collab-session.v1",
+  "created_at": "2026-08-19T13:19:18-05:00",
+  "status": "submitted",
+  "user": "usuario_1",
+  "user_slug": "usuario_1",
+  "master_path": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\00_MASTER\\Proyecto.qet",
+  "workspace_path": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT",
+  "baseline_path": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\01_BASELINES\\20260819_131918_Proyecto.qet",
+  "working_path": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\02_WORKING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet",
+  "incoming_path": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet",
+  "published_dir": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\04_PUBLISHED",
+  "logs_dir": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\06_LOGS",
+  "master_sha256": "6c3a85574c4612cae8f3faa73be7f572c27f11d992da7c8e89603cca4bcd686f",
+  "baseline_sha256": "6c3a85574c4612cae8f3faa73be7f572c27f11d992da7c8e89603cca4bcd686f",
+  "working_sha256": "54efc7076a3d834dbeaa334b340b6a18cfeeef8e7c2d56f8d44d7ff832dfd26c",
+  "submitted_at": "2026-08-19T13:19:38-05:00",
+  "incoming_sha256": "54efc7076a3d834dbeaa334b340b6a18cfeeef8e7c2d56f8d44d7ff832dfd26c",
+  "manifest_path": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet.jwqet.json"
+}

@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "base": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\01_BASELINES\\20260819_131720_Proyecto-2.qet",
+  "sources": [
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131720.qet",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131720.qet"
+  ],
+  "output": "build\\qet-collab-mvp\\JW_QET_COLLAB\\04_PUBLISHED\\Proyecto_Publicado.qet",
+  "dry_run": false,
+  "changed_diagrams": [
+    "order:1",
+    "order:2"
+  ],
+  "warnings": [
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131720.qet: diferencias globales: atributos de raiz, modificado global <newdiagrams>, modificado global <properties>, modificado global <usage>",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131720.qet: folios modificados: order:1",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131720.qet: diferencias globales: atributos de raiz, modificado global <newdiagrams>, modificado global <properties>, modificado global <usage>",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131720.qet: folios modificados: order:2"
+  ],
+  "conflicts": [],
+  "collection_elements": [
+    "3_pen_pravy.elmt",
+    "src_1pn.elmt"
+  ],
+  "manifests": [
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131720.qet.jwqet.json",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_COLLAB\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131720.qet.jwqet.json"
+  ]
+}

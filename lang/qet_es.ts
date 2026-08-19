@@ -8839,32 +8839,38 @@ Voulez-vous continuer ?</source>
         <source>Ce document semble avoir été enregistré avec une version %1
  qui est ultérieure à votre version ! 
 Vous utilisez actuellement QElectroTech en version %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Este documento parece haber sido guardado con la versión %1
+ que es posterior a su versión.
+Actualmente está usando QElectroTech en la versión %2</translation>
     </message>
     <message>
         <location filename="../sources/qetproject.cpp" line="1479"/>
         <source>.
  Il est alors possible que l&apos;ouverture de tout ou partie de ce document échoue.
 Que désirez vous faire ?</source>
-        <translation type="unfinished"></translation>
+        <translation>.
+Es posible que falle la apertura total o parcial de este documento.
+¿Qué desea hacer?</translation>
     </message>
     <message>
         <location filename="../sources/qetproject.cpp" line="1499"/>
         <source>Avertissement </source>
         <comment>message box title</comment>
-        <translation type="unfinished"></translation>
+        <translation>Advertencia </translation>
     </message>
     <message>
         <location filename="../sources/qetproject.cpp" line="1500"/>
         <source>Le projet que vous tentez d&apos;ouvrir est partiellement compatible avec votre version %1 de QElectroTech.
 </source>
-        <translation type="unfinished"></translation>
+        <translation>El proyecto que intenta abrir es parcialmente compatible con su versión %1 de QElectroTech.
+</translation>
     </message>
     <message>
         <location filename="../sources/qetproject.cpp" line="1503"/>
         <source>Afin de le rendre totalement compatible veuillez ouvrir ce même projet avec la version 0.8, ou 0.80 de QElectroTech et sauvegarder le projet et l&apos;ouvrir à  nouveau avec cette version.
 Que désirez vous faire ?</source>
-        <translation type="unfinished"></translation>
+        <translation>Para hacerlo totalmente compatible, abra este mismo proyecto con la versión 0.8 o 0.80 de QElectroTech, guarde el proyecto y vuelva a abrirlo con esta versión.
+¿Qué desea hacer?</translation>
     </message>
     <message>
         <location filename="../sources/qetproject.cpp" line="1600"/>

@@ -57,6 +57,17 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QProcess>
+#include <QProcessEnvironment>
+#include <QStandardPaths>
 #ifdef BUILD_WITHOUT_KF
 #	include "ui/nokde/kautosavefile.h"
 #else
@@ -594,6 +605,8 @@ void QETDiagramEditor::setUpActions()
 	m_save_file        = m_file_actions_group.addAction(QET::Icons::DocumentSave,   tr("&Enregistrer"));
 	m_save_file_as     = m_file_actions_group.addAction(QET::Icons::DocumentSaveAs, tr("Enregistrer sous"));
 	m_close_file       = m_file_actions_group.addAction(QET::Icons::ProjectClose,   tr("&Fermer"));
+	m_collab_checkout  = new QAction(QET::Icons::DocumentOpen, tr("Crear copia de trabajo colaborativa..."), this);
+	m_collab_submit    = new QAction(QET::Icons::DocumentSaveAll, tr("Entregar cambios colaborativos..."), this);
 
 	ShortcutManager::instance().registerAction(new_file, "diagrameditor.new_file", tr("Éditeur de schémas"), QKeySequence::New);
 	ShortcutManager::instance().registerAction(open_file, "diagrameditor.open_file", tr("Éditeur de schémas"), QKeySequence::Open);
@@ -606,11 +619,15 @@ void QETDiagramEditor::setUpActions()
 	m_close_file ->setStatusTip( tr("Ferme le projet courant", "status bar tip") );
 	m_save_file    ->setStatusTip( tr("Enregistre le projet courant et tous ses folios", "status bar tip") );
 	m_save_file_as ->setStatusTip( tr("Enregistre le projet courant avec un autre nom de fichier", "status bar tip") );
+	m_collab_checkout->setStatusTip(tr("Crea una copia local desde un maestro colaborativo y la abre en QElectroTech", "status bar tip"));
+	m_collab_submit->setStatusTip(tr("Guarda el proyecto actual y prepara su entrega colaborativa", "status bar tip"));
 
 	connect(m_save_file_as, &QAction::triggered, this, &QETDiagramEditor::saveAs);
 	connect(m_save_file,    &QAction::triggered, this, &QETDiagramEditor::save);
 	connect(new_file,       &QAction::triggered, this, &QETDiagramEditor::newProject);
 	connect(open_file,      &QAction::triggered, this, &QETDiagramEditor::openProject);
+	connect(m_collab_checkout, &QAction::triggered, this, &QETDiagramEditor::createCollaborativeWorkingCopy);
+	connect(m_collab_submit, &QAction::triggered, this, &QETDiagramEditor::submitCollaborativeChanges);
 	connect(m_close_file,   &QAction::triggered, [this]() {
 		if (ProjectView *project_view = currentProjectView()) {
 			closeProject(project_view);
@@ -864,6 +881,9 @@ void QETDiagramEditor::setUpMenu()
 	connect(QETApp::projectsRecentFiles(), &RecentFiles::fileOpeningRequested, this, &QETDiagramEditor::openRecentFile);
 	menu_fichier -> addActions(m_file_actions_group.actions());
 	menu_fichier -> addSeparator();
+	menu_fichier -> addAction(m_collab_checkout);
+	menu_fichier -> addAction(m_collab_submit);
+	menu_fichier -> addSeparator();
 	//menu_fichier -> addAction(import_diagram);
 	menu_fichier -> addAction(m_export_to_images);
 	menu_fichier -> addAction(m_export_to_pdf);
@@ -1034,6 +1054,300 @@ void QETDiagramEditor::saveAs()
 			showError(save_file);
 		}
 	}
+}
+
+/**
+	@brief QETDiagramEditor::collaborationPythonProgram
+	@return Python executable used by the JW collaboration helper.
+*/
+QString QETDiagramEditor::collaborationPythonProgram() const
+{
+	const QString env_python = qEnvironmentVariable("QET_COLLAB_PYTHON").trimmed();
+	if (!env_python.isEmpty())
+		return(env_python);
+
+#if defined(Q_OS_WIN32) || defined(Q_OS_WIN64)
+	const QString msys_python = QStringLiteral("C:/msys64/ucrt64/bin/python.exe");
+	if (QFileInfo::exists(msys_python))
+		return(msys_python);
+#endif
+
+	const QString python3 = QStandardPaths::findExecutable(QStringLiteral("python3"));
+	if (!python3.isEmpty())
+		return(python3);
+
+	const QString python = QStandardPaths::findExecutable(QStringLiteral("python"));
+	if (!python.isEmpty())
+		return(python);
+
+	return(QStringLiteral("python"));
+}
+
+/**
+	@brief QETDiagramEditor::collaborationScriptPath
+	@return Path to tools/qet_collab_session.py in the source checkout.
+*/
+QString QETDiagramEditor::collaborationScriptPath() const
+{
+	const QString script_relative_path = QStringLiteral("tools/qet_collab_session.py");
+	QStringList roots;
+	roots << QDir::currentPath();
+	roots << QCoreApplication::applicationDirPath();
+	roots << QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
+
+	for (const QString &root: roots)
+	{
+		const QString candidate = QDir::cleanPath(QDir(root).absoluteFilePath(script_relative_path));
+		if (QFileInfo::exists(candidate))
+			return(candidate);
+	}
+
+	return(QDir::cleanPath(QDir(QDir::currentPath()).absoluteFilePath(script_relative_path)));
+}
+
+/**
+	@brief QETDiagramEditor::runCollaborationTool
+	Run the JW collaboration helper and parse its JSON output.
+*/
+QJsonObject QETDiagramEditor::runCollaborationTool(
+		const QStringList &arguments,
+		bool *ok,
+		QString *error_message) const
+{
+	if (ok)
+		*ok = false;
+	if (error_message)
+		error_message->clear();
+
+	const QString script_path = collaborationScriptPath();
+	if (!QFileInfo::exists(script_path))
+	{
+		if (error_message)
+		{
+			*error_message = tr("No se encontró la herramienta colaborativa:\n%1").arg(
+						QDir::toNativeSeparators(script_path));
+		}
+		return(QJsonObject());
+	}
+
+	QStringList process_arguments;
+	process_arguments << script_path;
+	process_arguments << arguments;
+
+	QProcess process;
+	QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+	environment.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
+	process.setProcessEnvironment(environment);
+	process.start(collaborationPythonProgram(), process_arguments);
+
+	if (!process.waitForStarted())
+	{
+		if (error_message)
+		{
+			*error_message = tr("No se pudo iniciar Python para la herramienta colaborativa:\n%1").arg(
+						process.errorString());
+		}
+		return(QJsonObject());
+	}
+
+	if (!process.waitForFinished(-1))
+	{
+		if (error_message)
+		{
+			*error_message = tr("La herramienta colaborativa no terminó correctamente:\n%1").arg(
+						process.errorString());
+		}
+		return(QJsonObject());
+	}
+
+	const QByteArray stdout_data = process.readAllStandardOutput();
+	const QByteArray stderr_data = process.readAllStandardError();
+	if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
+	{
+		QString details = QString::fromUtf8(stderr_data).trimmed();
+		if (details.isEmpty())
+			details = QString::fromUtf8(stdout_data).trimmed();
+		if (error_message)
+		{
+			*error_message = tr("La herramienta colaborativa falló con código %1.\n%2").arg(
+						process.exitCode()).arg(details);
+		}
+		return(QJsonObject());
+	}
+
+	QJsonParseError parse_error;
+	const QJsonDocument document = QJsonDocument::fromJson(stdout_data, &parse_error);
+	if (parse_error.error != QJsonParseError::NoError || !document.isObject())
+	{
+		if (error_message)
+		{
+			*error_message = tr("La herramienta colaborativa no devolvió un JSON válido.\n%1").arg(
+						QString::fromUtf8(stdout_data).trimmed());
+		}
+		return(QJsonObject());
+	}
+
+	if (ok)
+		*ok = true;
+	return(document.object());
+}
+
+/**
+	@brief QETDiagramEditor::createCollaborativeWorkingCopy
+	Create a working copy from a shared master and open it.
+*/
+void QETDiagramEditor::createCollaborativeWorkingCopy()
+{
+	const QString master_path = QFileDialog::getOpenFileName(
+				this,
+				tr("Seleccionar archivo maestro colaborativo"),
+				open_dialog_dir.absolutePath(),
+				tr("Proyectos QElectroTech (*.qet);;Todos los archivos (*)"));
+	if (master_path.isEmpty())
+		return;
+
+	QFileInfo master_info(master_path);
+	open_dialog_dir = master_info.absoluteDir();
+
+	QDir workspace_dir = master_info.absoluteDir();
+	if (workspace_dir.dirName() == QStringLiteral("00_MASTER"))
+		workspace_dir.cdUp();
+
+	const QString workspace_path = QFileDialog::getExistingDirectory(
+				this,
+				tr("Seleccionar carpeta colaborativa"),
+				workspace_dir.absolutePath());
+	if (workspace_path.isEmpty())
+		return;
+
+	QString default_user = qEnvironmentVariable("USERNAME").trimmed();
+	if (default_user.isEmpty())
+		default_user = qEnvironmentVariable("USER").trimmed();
+
+	bool accepted = false;
+	const QString user = QInputDialog::getText(
+				this,
+				tr("Usuario colaborativo"),
+				tr("Nombre del usuario:"),
+				QLineEdit::Normal,
+				default_user,
+				&accepted).trimmed();
+	if (!accepted || user.isEmpty())
+		return;
+
+	bool tool_ok = false;
+	QString error_message;
+	const QJsonObject result = runCollaborationTool(
+				QStringList()
+				<< QStringLiteral("checkout")
+				<< QStringLiteral("--master") << master_path
+				<< QStringLiteral("--workspace") << workspace_path
+				<< QStringLiteral("--user") << user
+				<< QStringLiteral("--json"),
+				&tool_ok,
+				&error_message);
+
+	if (!tool_ok)
+	{
+		QMessageBox::warning(this, tr("No se pudo crear la copia colaborativa"), error_message);
+		return;
+	}
+
+	const QString working_path = result.value(QStringLiteral("working_path")).toString();
+	const QString manifest_path = result.value(QStringLiteral("manifest_path")).toString();
+	if (working_path.isEmpty() || !QFileInfo::exists(working_path))
+	{
+		QMessageBox::warning(
+					this,
+					tr("No se pudo abrir la copia colaborativa"),
+					tr("La herramienta terminó, pero no se encontró la copia de trabajo creada."));
+		return;
+	}
+
+	const bool opened = openAndAddProject(working_path);
+	QString message = tr("Se creó la copia de trabajo colaborativa:\n%1\n\nManifiesto:\n%2").arg(
+				QDir::toNativeSeparators(working_path),
+				QDir::toNativeSeparators(manifest_path));
+	if (!opened)
+	{
+		message += tr("\n\nLa copia se creó, pero QET no la abrió automáticamente. Puedes abrirla manualmente desde Archivo > Abrir.");
+	}
+
+	QMessageBox::information(this, tr("Copia colaborativa creada"), message);
+}
+
+/**
+	@brief QETDiagramEditor::submitCollaborativeChanges
+	Save the current working copy and prepare its collaborative delivery.
+*/
+void QETDiagramEditor::submitCollaborativeChanges()
+{
+	ProjectView *project_view = currentProjectView();
+	if (!project_view || !project_view->project())
+	{
+		QMessageBox::information(
+					this,
+					tr("Sin proyecto abierto"),
+					tr("Abre primero una copia de trabajo colaborativa."));
+		return;
+	}
+
+	const QString working_path = project_view->project()->filePath();
+	if (working_path.isEmpty())
+	{
+		QMessageBox::warning(
+					this,
+					tr("Proyecto sin archivo"),
+					tr("Guarda el proyecto como archivo .qet antes de entregarlo."));
+		return;
+	}
+
+	const QString manifest_path = working_path + QStringLiteral(".jwqet.json");
+	if (!QFileInfo::exists(manifest_path))
+	{
+		QMessageBox::warning(
+					this,
+					tr("No es una copia colaborativa"),
+					tr("No se encontró el manifiesto colaborativo esperado:\n%1").arg(
+						QDir::toNativeSeparators(manifest_path)));
+		return;
+	}
+
+	const QETResult saved = project_view->save();
+	if (!saved.isOk())
+	{
+		showError(saved);
+		return;
+	}
+	QETApp::projectsRecentFiles()->fileWasOpened(working_path);
+	m_element_collection_widget->highlightUnusedElement();
+
+	bool tool_ok = false;
+	QString error_message;
+	const QJsonObject result = runCollaborationTool(
+				QStringList()
+				<< QStringLiteral("submit")
+				<< QStringLiteral("--manifest") << manifest_path
+				<< QStringLiteral("--force")
+				<< QStringLiteral("--json"),
+				&tool_ok,
+				&error_message);
+
+	if (!tool_ok)
+	{
+		QMessageBox::warning(this, tr("No se pudieron entregar los cambios"), error_message);
+		return;
+	}
+
+	const QString incoming_path = result.value(QStringLiteral("incoming_path")).toString();
+	const QString incoming_manifest_path = result.value(QStringLiteral("manifest_path")).toString();
+	QMessageBox::information(
+				this,
+				tr("Cambios entregados"),
+				tr("La copia guardada se entregó para publicación:\n%1\n\nManifiesto de entrega:\n%2").arg(
+					QDir::toNativeSeparators(incoming_path),
+					QDir::toNativeSeparators(incoming_manifest_path)));
+	statusBar()->showMessage(tr("Cambios colaborativos entregados."), 3000);
 }
 
 /**
@@ -1685,6 +1999,7 @@ void QETDiagramEditor::slot_updateActions()
 	m_close_file->                  setEnabled(opened_project);
 	m_save_file->                   setEnabled(opened_project);
 	m_save_file_as->                setEnabled(opened_project);
+	m_collab_submit->               setEnabled(opened_project);
 	m_rotate_texts->                setEnabled(editable_project);
 	m_export_to_images->            setEnabled(opened_diagram);
 	m_print->                       setEnabled(opened_diagram);

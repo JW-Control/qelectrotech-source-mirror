@@ -1,0 +1,26 @@
+{
+  "ok": false,
+  "base": "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\01_BASELINES\\20260819_131918_Proyecto.qet",
+  "sources": [
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131918.qet"
+  ],
+  "output": "build\\qet-collab-mvp\\JW_QET_CONFLICT\\04_PUBLISHED\\Proyecto_Conflictivo.qet",
+  "changed_diagrams": [
+    "order:1"
+  ],
+  "warnings": [
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet: diferencias globales: atributos de raiz, modificado global <newdiagrams>, modificado global <properties>, modificado global <usage>",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet: folios modificados: order:1",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131918.qet: diferencias globales: atributos de raiz, modificado global <newdiagrams>, modificado global <properties>, modificado global <usage>",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131918.qet: folios modificados: order:1"
+  ],
+  "conflicts": [
+    "conflicto de elemento embebido en /project/collection/category[import]/category[10_electric]/category[10_allpole]/category[110_network_supplies]/element[3_pen_pravy.elmt]",
+    "folio order:1 se modifico de forma distinta en C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet y C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131918.qet"
+  ],
+  "manifests": [
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_1\\Proyecto_usuario_1_20260819_131918.qet.jwqet.json",
+    "C:\\Users\\jeykc\\Documentos\\GitHub\\qelectrotech-source-mirror\\build\\qet-collab-mvp\\JW_QET_CONFLICT\\03_INCOMING\\usuario_2\\Proyecto_usuario_2_20260819_131918.qet.jwqet.json"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/cmake_install.cmake",
+		"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/cmake_install.cmake",
+		"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/pugixml-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

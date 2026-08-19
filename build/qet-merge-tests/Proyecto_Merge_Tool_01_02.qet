@@ -1,0 +1,270 @@
+<project title="Proyecto_Base" version="0.200.1">
+    <properties>
+        <property name="saveddate" show="1">19/08/2026</property>
+        <property name="saveddate-eu" show="1">19-08-2026</property>
+        <property name="saveddate-us" show="1">2026-08-19</property>
+        <property name="savedfilename" show="1">Proyecto_Base</property>
+        <property name="savedfilepath" show="1">C:/Users/jeykc/Documentos/Proyecto_Base.qet</property>
+        <property name="savedtime" show="1">11:20</property>
+    </properties>
+    <usage time_spent="51" enabled="true" />
+    <newdiagrams>
+        <border displayrows="true" colsize="60" displaycols="true" rows="8" rowsize="80" cols="17" />
+        <inset locmach="" filename="" author="" plant="" indexrev="" auto_page_num="" title="" date="null" folio="%id/%total" version="" displayAt="bottom" />
+        <conductors cable="" dash-size="1" conductor_section="" function="" horizrotatetext="0" vertical-alignment="AlignRight" vertirotatetext="270" tension_protocol="" bicolor="false" num="_" displaytext="1" horizontal-alignment="AlignBottom" text_color="#000000" bus="" conductor_color="" numsize="7" type="multi" formula="" onetextperfolio="0" color2="#000000" condsize="1" />
+        <report label="%f-%l%c" />
+        <xrefs>
+            <xref type="coil" xrefpos="AlignBottom" delayprefix="" offset="0" displayhas="cross" master_label="%f-%l%c" snapto="label" powerprefix="" switchprefix="" showpowerctc="true" showterminalname="true" slave_label="(%f-%l%c)" />
+            <xref type="plc" xrefpos="AlignBottom" delayprefix="" offset="0" displayhas="cross" master_label="%f-%l%c" snapto="label" powerprefix="" switchprefix="" showpowerctc="true" showterminalname="true" slave_label="(%f-%l%c)" />
+            <xref type="protection" xrefpos="AlignBottom" delayprefix="" offset="0" displayhas="cross" master_label="%f-%l%c" snapto="label" powerprefix="" switchprefix="" showpowerctc="true" showterminalname="true" slave_label="(%f-%l%c)" />
+            <xref type="commutator" xrefpos="AlignBottom" delayprefix="" offset="0" displayhas="cross" master_label="%f-%l%c" snapto="label" powerprefix="" switchprefix="" showpowerctc="true" showterminalname="true" slave_label="(%f-%l%c)" />
+        </xrefs>
+        <conductors_autonums freeze_new_conductors="false" current_autonum="" auto_break_conductors="false" />
+        <folio_autonums />
+        <element_autonums freeze_new_elements="false" current_autonum="" />
+        <guides />
+    </newdiagrams>
+    <diagram filename="" freezeNewConductor="false" freezeNewElement="false" indexrev="" displayAt="bottom" rows="8" order="1" locmach="" author="" displayrows="true" date="null" height="660" displaycols="true" auto_page_num="" title="" version="0.200.1-dev" colsize="60" rowsize="80" plant="" folio="%id/%total" cols="17">
+        <defaultconductor cable="" dash-size="1" conductor_section="" vertical-alignment="AlignRight" function="" horizrotatetext="0" vertirotatetext="270" tension_protocol="" bicolor="false" num="_" horizontal-alignment="AlignBottom" displaytext="1" text_color="#000000" bus="" conductor_color="" numsize="7" type="multi" formula="" onetextperfolio="0" color2="#000000" condsize="1" />
+        <elements>
+            <element type="embed://import/10_electric/10_allpole/110_network_supplies/3_pen_pravy.elmt" freezeLabel="false" x="720" uuid="{73b4ae8e-0c62-4f46-a3c4-6904dcb7eb24}" prefix="" y="190" orientation="0" z="10">
+                <terminals>
+                    <terminal x="-6" y="-30" orientation="3" id="0" />
+                    <terminal x="-6" y="-10" orientation="3" id="1" />
+                    <terminal x="-6" y="10" orientation="3" id="2" />
+                    <terminal x="-6" y="30" orientation="3" id="3" />
+                </terminals>
+                <inputs />
+                <dynamic_texts>
+                    <dynamic_elmt_text Valignment="AlignTop" text_from="ElementInfo" x="-7" uuid="{fc52b165-2d62-41ed-ba01-ea752cc6b6d9}" y="-60.45" rotation="0" text_width="-1" rotation_point_center="false" font="Liberation Sans,9,-1,5,50,0,0,0,0,0,Regular" keep_visual_rotation="true" Halignment="AlignLeft" frame="false">
+                        <text />
+                        <info_name>label</info_name>
+                    </dynamic_elmt_text>
+                </dynamic_texts>
+                <texts_groups />
+            </element>
+        </elements>
+        <shapes>
+            <shape type="Rectangle" x1="290" y2="250" is_movable="1" x2="470" y1="100" ry="0" rx="0" closed="0" z="0">
+                <pen color="#000000" style="SolidLine" widthF="1" />
+                <brush color="#000000" style="NoBrush" />
+            </shape>
+        </shapes>
+    </diagram>
+    <diagram filename="" freezeNewConductor="false" freezeNewElement="false" indexrev="" displayAt="bottom" rows="8" order="2" locmach="" author="" displayrows="true" date="null" height="660" displaycols="true" auto_page_num="" title="" version="0.200.1-dev" colsize="60" rowsize="80" plant="" folio="%id/%total" cols="17">
+        <defaultconductor cable="" dash-size="1" conductor_section="" vertical-alignment="AlignRight" function="" horizrotatetext="0" vertirotatetext="270" tension_protocol="" bicolor="false" num="_" horizontal-alignment="AlignBottom" displaytext="1" text_color="#000000" bus="" conductor_color="" numsize="7" type="multi" formula="" onetextperfolio="0" color2="#000000" condsize="1" />
+        <elements>
+            <element type="embed://import/10_electric/10_allpole/130_terminals_terminal_strips/barre_interconnexion_tn.elmt" freezeLabel="false" x="710" uuid="{4c9f1e6c-69b9-464d-99b4-ddcb42c290bd}" prefix="X" y="240" orientation="0" z="10">
+                <terminals>
+                    <terminal x="0" y="-28" orientation="0" id="0" />
+                    <terminal x="0" y="28" orientation="2" id="1" />
+                </terminals>
+                <inputs />
+                <elementInformations />
+                <dynamic_texts>
+                    <dynamic_elmt_text Valignment="AlignTop" text_from="ElementInfo" x="13" uuid="{0649a8a5-fe1d-4291-88a8-478edc1cfd82}" y="-31.95" rotation="0" text_width="-1" rotation_point_center="false" font="Liberation Sans,9,-1,5,50,0,0,0,0,0,Regular" keep_visual_rotation="false" Halignment="AlignLeft" frame="false">
+                        <text />
+                        <info_name>label</info_name>
+                    </dynamic_elmt_text>
+                </dynamic_texts>
+                <texts_groups />
+            </element>
+        </elements>
+        <shapes>
+            <shape type="Rectangle" x1="290" y2="320" is_movable="1" x2="520" y1="130" ry="0" rx="0" closed="0" z="0">
+                <pen color="#000000" style="SolidLine" widthF="1" />
+                <brush color="#000000" style="NoBrush" />
+            </shape>
+        </shapes>
+    </diagram>
+    <collection>
+        <category name="import">
+            <names>
+                <name lang="ca">Elements importats</name>
+                <name lang="cs">Zavedené prvky</name>
+                <name lang="da">Importerede elementer</name>
+                <name lang="de">Importierte Elemente</name>
+                <name lang="el">Εισηγμένα στοιχεία</name>
+                <name lang="en">Imported elements</name>
+                <name lang="es">Elementos importados</name>
+                <name lang="fr">Éléments importés</name>
+                <name lang="hr">Uvezeni elementi</name>
+                <name lang="it">Elementi importati</name>
+                <name lang="ja">インバートされた要素</name>
+                <name lang="ko">전기 심볼 요소</name>
+                <name lang="ko_KR">전기 심볼 요소</name>
+                <name lang="nl">Elementen geïmporteerd</name>
+                <name lang="nl_BE">Elementen geïmporteerd</name>
+                <name lang="pl">Elementy importowane</name>
+                <name lang="pt">Elementos importados</name>
+                <name lang="pt_BR">Elementos importados</name>
+                <name lang="ro">Elemente importate</name>
+                <name lang="ru">Импортированные элементы</name>
+                <name lang="sl">Uvoženi elementi</name>
+                <name lang="sv">Importerade element</name>
+                <name lang="tr">İthal öğeler</name>
+                <name lang="uk">Імпортовані елементи</name>
+                <name lang="zh">导入元件</name>
+            </names>
+            <category name="10_electric">
+                <names>
+                    <name lang="cs">Elektrotechnika</name>
+                    <name lang="da">Elektrisk</name>
+                    <name lang="de">Elektrik</name>
+                    <name lang="el">Ηλεκτρικά</name>
+                    <name lang="en">Electric</name>
+                    <name lang="es">Eléctrica</name>
+                    <name lang="fr">Electrique</name>
+                    <name lang="it">Elettrica</name>
+                    <name lang="ja">電気</name>
+                    <name lang="ko">전기</name>
+                    <name lang="nl">Elektrotechniek</name>
+                    <name lang="pl">Elektrotechnika</name>
+                    <name lang="pt_BR">Elétrica</name>
+                    <name lang="ru">Электротехника</name>
+                    <name lang="zh">10_电气</name>
+                    <name lang="zn">电气工程</name>
+                </names>
+                <category name="10_allpole">
+                    <names>
+                        <name lang="cs">Vícežilový</name>
+                        <name lang="da">Flere ledere</name>
+                        <name lang="de">Allpolig</name>
+                        <name lang="el">Πολυγραμμικό</name>
+                        <name lang="en">All-pole</name>
+                        <name lang="es">Multifilar</name>
+                        <name lang="fr">Multifilaire</name>
+                        <name lang="hu">Többvonalas szimbólumok</name>
+                        <name lang="it">Multifilare</name>
+                        <name lang="ja">複線</name>
+                        <name lang="ko">다-극</name>
+                        <name lang="nl">Veel polig</name>
+                        <name lang="pl">Schematy wieloliniowe</name>
+                        <name lang="pt_BR">Multifilar</name>
+                        <name lang="ru">Многополюсные</name>
+                        <name lang="zh">10_全极</name>
+                    </names>
+                    <category name="110_network_supplies">
+                        <names>
+                            <name lang="cs">Napájení</name>
+                            <name lang="da">Netværkskilder</name>
+                            <name lang="de">Netzquellen</name>
+                            <name lang="el">Παροχές δικτύου</name>
+                            <name lang="en">Network sources</name>
+                            <name lang="es">Fuentes de red</name>
+                            <name lang="fr">Sources réseau</name>
+                            <name lang="hu">Hálózati források</name>
+                            <name lang="it">Alimentazione da rete</name>
+                            <name lang="ja">電源網</name>
+                            <name lang="ko">전원 공급망</name>
+                            <name lang="nl">Netvoedingen</name>
+                            <name lang="pl">Sieć elektroenergetyczna</name>
+                            <name lang="pt_BR">alimentacao</name>
+                            <name lang="ru">Подвод питания, сеть</name>
+                            <name lang="zh">网络电源</name>
+                        </names>
+                        <element name="3_pen_pravy.elmt">
+                            <definition type="element" link_type="simple" height="80" hotspot_x="21" width="40" hotspot_y="38" version="0.100.0">
+                                <uuid uuid="{249b62f5-d813-7fbb-1cc1-c7020cbf43d0}" />
+                                <names>
+                                    <name lang="ar">مصدر ثلاثي القطبيّة + PEN</name>
+                                    <name lang="ca">Font tripolar + PEN</name>
+                                    <name lang="cs">Přípojnice 3f+PEN pravá</name>
+                                    <name lang="de">Drehstrom + PEN</name>
+                                    <name lang="el">Τριφασικό + PEN</name>
+                                    <name lang="en">Three-pole source + PEN</name>
+                                    <name lang="es">Fuente tripolar + PEN</name>
+                                    <name lang="fr">Source tripolaire + PEN</name>
+                                    <name lang="hu">3F + PEN</name>
+                                    <name lang="it">Sorgente tripolare + PEN</name>
+                                    <name lang="nl">driefasen + aardenul</name>
+                                    <name lang="pl">Linia trójfazowa (PEN)</name>
+                                    <name lang="pt_BR">Fonte tripolar + PEN</name>
+                                    <name lang="ru">Трёхполюсный + PEN</name>
+                                    <name lang="zh">三相PEN右</name>
+                                </names>
+                                <informations>Author: The QElectroTech team
+License: see http://qelectrotech.org/wiki/doc/elements_license</informations>
+                                <description>
+                                    <dynamic_text Valignment="AlignTop" text_from="ElementInfo" x="-7" uuid="{7c68cf51-b979-4e89-97b2-a93b5ad61f95}" y="-60.45" text_width="-1" rotation="0" Halignment="AlignLeft" keep_visual_rotation="true" font="Liberation Sans,9,-1,5,50,0,0,0,0,0,Regular" frame="false" z="1">
+                                        <text />
+                                        <info_name>label</info_name>
+                                    </dynamic_text>
+                                    <text x="7" color="#000000" text="PEN" y="33" rotation="0" font="Liberation Sans,5,-1,5,50,0,0,0,0,0,Regular" />
+                                    <text x="7" color="#000000" text="L3" y="13" rotation="0" font="Liberation Sans,5,-1,5,50,0,0,0,0,0,Regular" />
+                                    <text x="7" color="#000000" text="L2" y="-7" rotation="0" font="Liberation Sans,5,-1,5,50,0,0,0,0,0,Regular" />
+                                    <text x="7" color="#000000" text="L1" y="-27" rotation="0" font="Liberation Sans,5,-1,5,50,0,0,0,0,0,Regular" />
+                                    <line antialias="false" x1="-10" y2="-30" length2="1.5" end2="none" end1="none" x2="0" y1="-30" style="line-style:normal;line-weight:normal;filling:none;color:black" length1="1.5" />
+                                    <line antialias="false" x1="-10" y2="-10" length2="1.5" end2="none" end1="none" x2="0" y1="-10" style="line-style:normal;line-weight:normal;filling:none;color:black" length1="1.5" />
+                                    <line antialias="false" x1="-10" y2="10" length2="1.5" end2="none" end1="none" x2="0" y1="10" style="line-style:normal;line-weight:normal;filling:none;color:black" length1="1.5" />
+                                    <line antialias="false" x1="-9" y2="30" length2="1.5" end2="none" end1="none" x2="0" y1="30" style="line-style:normal;line-weight:normal;filling:none;color:black" length1="1.5" />
+                                    <terminal type="Generic" x="-10" uuid="{16ce45be-7e97-4409-b179-fdd188972351}" name="L1" y="-30" orientation="w" />
+                                    <terminal type="Generic" x="-10" uuid="{c8ea3eaf-15d6-47e7-8987-7afdf9ae4c1a}" name="L2" y="-10" orientation="w" />
+                                    <terminal type="Generic" x="-10" uuid="{aa438bb4-35e4-475d-87bb-f4e1f6896ed8}" name="PEN" y="30" orientation="w" />
+                                    <terminal type="Generic" x="-10" uuid="{c1bcd2f0-42d9-4ddb-9d71-da86a3b76b7f}" name="L3" y="10" orientation="w" />
+                                </description>
+                            </definition>
+                        </element>
+                    </category>
+                    <category name="130_terminals_terminal_strips">
+                        <names>
+                            <name lang="ar">طرفيات توصيل</name>
+                            <name lang="cs">Svorky</name>
+                            <name lang="da">Klemmer og klemmerækker</name>
+                            <name lang="de">Klemmen und Klemmleisten</name>
+                            <name lang="el">Ακροδέκτες και σειρές ακροδεκτών</name>
+                            <name lang="en">Terminals and terminal strips</name>
+                            <name lang="es">Terminales</name>
+                            <name lang="fr">Bornes et borniers</name>
+                            <name lang="hu">Sorkapcsok</name>
+                            <name lang="it">Terminali</name>
+                            <name lang="ja">端子と端子台</name>
+                            <name lang="ko">단자 및 단자대</name>
+                            <name lang="nl">Klemmenlijst</name>
+                            <name lang="pl">Złącza i zaciski</name>
+                            <name lang="pt">Terminais</name>
+                            <name lang="pt_BR">Bornes e borneiras</name>
+                            <name lang="ru">Клеммы и клеммники</name>
+                            <name lang="zh">接线端子与端子排</name>
+                        </names>
+                        <element name="barre_interconnexion_tn.elmt">
+                            <definition type="element" link_type="simple" height="80" hotspot_x="10" width="20" hotspot_y="40" version="0.100.0">
+                                <uuid uuid="{1e80b822-e8f3-7823-08b4-56122244bdb3}" />
+                                <names>
+                                    <name lang="ar">شريط ربط</name>
+                                    <name lang="ca">Barra d'interconnexió de TN</name>
+                                    <name lang="cs">Propojovací svorka TN</name>
+                                    <name lang="de">TN-Verbindungsschiene</name>
+                                    <name lang="en">Bar interconnection TN</name>
+                                    <name lang="es">Barra de interconexión TN</name>
+                                    <name lang="fr">Barre d'interconnection TN</name>
+                                    <name lang="hu">Belső sínösszekötő TN</name>
+                                    <name lang="it">Barra di connessione TN</name>
+                                    <name lang="pl">Oddzielacz w stanie zamknięcia</name>
+                                    <name lang="pt_BR">Barra de interconexão TN</name>
+                                    <name lang="zh">互连排TN</name>
+                                </names>
+                                <informations>Author: The QElectroTech team
+License: see http://qelectrotech.org/wiki/doc/elements_license</informations>
+                                <description>
+                                    <dynamic_text Valignment="AlignTop" text_from="ElementInfo" x="13" uuid="{08617f49-a52d-48b7-8bfa-0b17e40a7598}" y="-31.95" text_width="-1" rotation="0" Halignment="AlignLeft" keep_visual_rotation="false" font="Liberation Sans,9,-1,5,50,0,0,0,0,0,Regular" frame="false" z="1">
+                                        <text />
+                                        <info_name>label</info_name>
+                                    </dynamic_text>
+                                    <ellipse antialias="true" x="-5" height="10" y="-19" width="10" style="line-style:normal;line-weight:normal;filling:none;color:black" />
+                                    <ellipse antialias="true" x="-5" height="10" y="9" width="10" style="line-style:normal;line-weight:normal;filling:none;color:black" />
+                                    <arc antialias="true" start="180" angle="180" x="-8" height="16" y="12" width="16" style="line-style:normal;line-weight:normal;filling:none;color:black" />
+                                    <line antialias="false" x1="-8" y2="20" length2="1.5" end2="none" end1="none" x2="-8" y1="-20" style="line-style:normal;line-weight:normal;filling:none;color:black" length1="1.5" />
+                                    <arc antialias="true" start="0" angle="180" x="-8" height="16" y="-28" width="16" style="line-style:normal;line-weight:normal;filling:none;color:black" />
+                                    <line antialias="false" x1="8" y2="20" length2="1.5" end2="none" end1="none" x2="8" y1="-20" style="line-style:normal;line-weight:normal;filling:none;color:black" length1="1.5" />
+                                    <terminal type="Generic" x="0" uuid="{fae932b8-e100-4e36-b870-4379eb4f2c2f}" name="" y="32" orientation="s" />
+                                    <terminal type="Generic" x="0" uuid="{1bb1b26e-9419-4861-bab8-c63553ea069c}" name="" y="-32" orientation="n" />
+                                </description>
+                            </definition>
+                        </element>
+                    </category>
+                </category>
+            </category>
+        </category>
+    </collection>
+</project>

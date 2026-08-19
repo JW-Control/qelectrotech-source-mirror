@@ -1,0 +1,150 @@
+{
+	"AUTOGEN_COMMAND_LINE_LENGTH_MAX" : 32000,
+	"BUILD_DIR" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/SingleApplication_autogen",
+	"CMAKE_BINARY_DIR" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf",
+	"CMAKE_CURRENT_BINARY_DIR" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build",
+	"CMAKE_CURRENT_SOURCE_DIR" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication",
+	"CMAKE_EXECUTABLE" : "C:/msys64/ucrt64/bin/cmake.exe",
+	"CMAKE_LIST_FILES" : 
+	[
+		"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication/CMakeLists.txt",
+		"C:/msys64/ucrt64/lib/cmake/Qt5/Qt5ConfigVersion.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5/Qt5Config.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5/Qt5ModuleLocation.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Core/Qt5CoreConfigVersion.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Core/Qt5CoreConfig.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Core/Qt5CoreConfigExtras.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Core/Qt5CoreConfigExtrasMkspecDir.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Core/Qt5CoreMacros.cmake",
+		"C:/msys64/ucrt64/share/cmake/Modules/CMakeParseArguments.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Network/Qt5NetworkConfigVersion.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Network/Qt5NetworkConfig.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Network/Qt5Network_QGenericEnginePlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Widgets/Qt5WidgetsConfigVersion.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Widgets/Qt5WidgetsConfig.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5GuiConfigVersion.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5GuiConfig.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QGifPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QICOPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QJpegPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QMinimalIntegrationPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QOffscreenIntegrationPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QPdfPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QSvgIconPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QSvgPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QTuioTouchPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QWindowsDirect2DIntegrationPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5Gui_QWindowsIntegrationPlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Gui/Qt5GuiConfigExtras.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Widgets/Qt5Widgets_QWindowsVistaStylePlugin.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Widgets/Qt5WidgetsConfigExtras.cmake",
+		"C:/msys64/ucrt64/lib/cmake/Qt5Widgets/Qt5WidgetsMacros.cmake",
+		"C:/msys64/ucrt64/share/cmake/Modules/CMakeParseArguments.cmake"
+	],
+	"CMAKE_SOURCE_DIR" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror",
+	"CROSS_CONFIG" : false,
+	"DEP_FILE" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/SingleApplication_autogen/deps",
+	"DEP_FILE_RULE_NAME" : "SingleApplication_autogen/timestamp",
+	"HEADERS" : 
+	[
+		[
+			"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication/singleapplication.h",
+			"Mu",
+			"EWIEGA46WW/moc_singleapplication.cpp",
+			null
+		],
+		[
+			"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication/singleapplication_p.h",
+			"Mu",
+			"EWIEGA46WW/moc_singleapplication_p.cpp",
+			null
+		]
+	],
+	"HEADER_EXTENSIONS" : [ "h", "hh", "h++", "hm", "hpp", "hxx", "in", "txx" ],
+	"INCLUDE_DIR" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/SingleApplication_autogen/include",
+	"MOC_COMPILATION_FILE" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/SingleApplication_autogen/mocs_compilation.cpp",
+	"MOC_DEFINITIONS" : 
+	[
+		"GIT_COMMIT_SHA=\"\"",
+		"QAPPLICATION_CLASS=QApplication",
+		"QET_ALLOW_OVERRIDE_CD_OPTION",
+		"QET_ALLOW_OVERRIDE_CED_OPTION",
+		"QET_ALLOW_OVERRIDE_CTBTD_OPTION",
+		"QET_ALLOW_OVERRIDE_DD_OPTION",
+		"QET_EXPORT_PROJECT_DB",
+		"QT_CORE_LIB",
+		"QT_DEPRECATED_WARNINGS",
+		"QT_GUI_LIB",
+		"QT_MESSAGELOGCONTEXT",
+		"QT_NETWORK_LIB",
+		"QT_NO_CAST_FROM_ASCII",
+		"QT_NO_CAST_FROM_BYTEARRAY",
+		"QT_NO_CAST_TO_ASCII",
+		"QT_NO_DEBUG",
+		"QT_NO_FOREACH",
+		"QT_NO_KEYWORDS",
+		"QT_NO_NARROWING_CONVERSIONS_IN_CONNECT",
+		"QT_NO_URL_CAST_FROM_STRING",
+		"QT_USE_QSTRINGBUILDER",
+		"QT_WIDGETS_LIB"
+	],
+	"MOC_DEPEND_FILTERS" : 
+	[
+		[
+			"Q_PLUGIN_METADATA",
+			"[\n][ \t]*Q_PLUGIN_METADATA[ \t]*\\([^\\)]*FILE[ \t]*\"([^\"]+)\""
+		]
+	],
+	"MOC_INCLUDES" : 
+	[
+		"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication",
+		"C:/msys64/ucrt64/include/QtCore",
+		"C:/msys64/ucrt64/share/qt5/mkspecs/win32-g++",
+		"C:/msys64/ucrt64/include/QtNetwork",
+		"C:/msys64/ucrt64/include/QtWidgets",
+		"C:/msys64/ucrt64/include/QtGui",
+		"C:/msys64/ucrt64/include",
+		"C:/msys64/ucrt64/include/c++/16.2.0",
+		"C:/msys64/ucrt64/include/c++/16.2.0/x86_64-w64-mingw32",
+		"C:/msys64/ucrt64/include/c++/16.2.0/backward",
+		"C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/16.2.0/include",
+		"C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/16.2.0/include-fixed"
+	],
+	"MOC_MACRO_NAMES" : [ "Q_OBJECT", "Q_GADGET", "Q_NAMESPACE", "Q_NAMESPACE_EXPORT" ],
+	"MOC_OPTIONS" : [],
+	"MOC_PATH_PREFIX" : false,
+	"MOC_PREDEFS_CMD" : 
+	[
+		"C:/msys64/ucrt64/bin/g++.exe",
+		"-w",
+		"-dM",
+		"-E",
+		"C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp"
+	],
+	"MOC_PREDEFS_FILE" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/SingleApplication_autogen/moc_predefs.h",
+	"MOC_RELAXED_MODE" : false,
+	"MOC_SKIP" : [],
+	"MULTI_CONFIG" : false,
+	"PARALLEL" : 10,
+	"PARSE_CACHE_FILE" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/CMakeFiles/SingleApplication_autogen.dir/ParseCache.txt",
+	"QT_MOC_EXECUTABLE" : "C:/msys64/ucrt64/bin/moc.exe",
+	"QT_UIC_EXECUTABLE" : "",
+	"QT_VERSION_MAJOR" : 5,
+	"QT_VERSION_MINOR" : 15,
+	"SETTINGS_FILE" : "C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/build/jw-qet-qt5-nokf/_deps/singleapplication-build/CMakeFiles/SingleApplication_autogen.dir/AutogenUsed.txt",
+	"SOURCES" : 
+	[
+		[
+			"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication/singleapplication.cpp",
+			"Mu",
+			null
+		],
+		[
+			"C:/Users/jeykc/Documentos/GitHub/qelectrotech-source-mirror/SingleApplication/singleapplication_p.cpp",
+			"Mu",
+			null
+		]
+	],
+	"USE_BETTER_GRAPH" : false,
+	"VERBOSITY" : 0
+}

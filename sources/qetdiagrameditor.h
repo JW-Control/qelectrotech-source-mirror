@@ -29,6 +29,7 @@
 #include <QUndoGroup>
 
 class QMdiSubWindow;
+class QJsonObject;
 class QETProject;
 class QETResult;
 class ProjectView;
@@ -99,6 +100,9 @@ class QETDiagramEditor : public QETMainWindow
 		QMdiSubWindow *subWindowForWidget(QWidget *) const;
 		void updateUsageTrackersActiveState();
 		void updateWindowModifiedState();
+		QString collaborationPythonProgram() const;
+		QString collaborationScriptPath() const;
+		QJsonObject runCollaborationTool(const QStringList &, bool *, QString *) const;
 
 	signals:
 		void syncElementsPanel();
@@ -108,6 +112,8 @@ class QETDiagramEditor : public QETMainWindow
 		void saveAs();
 		bool newProject();
 		bool openProject();
+		void createCollaborativeWorkingCopy();
+		void submitCollaborativeChanges();
 		bool openRecentFile(const QString &);
 		bool closeProject(ProjectView *);
 		bool closeProject(QETProject *);
@@ -224,6 +230,8 @@ class QETDiagramEditor : public QETMainWindow
 		*m_close_file,			///< Close current project file
 		*m_save_file,			///< Save current project
 		*m_save_file_as,		///< Save current project as a specific file
+		*m_collab_checkout = nullptr,	///< Create and open a collaborative working copy
+		*m_collab_submit = nullptr,	///< Submit the current collaborative working copy
 		*m_find = nullptr,
 		*m_jump_to_element = nullptr;	///< Open the "jump to element" quick-open popup
 

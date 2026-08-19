@@ -37,6 +37,9 @@ Raiz compartida en Drive, nombre sugerido:
 
 ```text
 JW_QET_COLLAB/
+  00_SETUP/
+    JW_QET_Portable_Setup.exe
+    JW_QET_Portable.7z
   00_MASTER/
     Proyecto.qet
   01_BASELINES/
@@ -54,6 +57,7 @@ JW_QET_COLLAB/
 
 Uso de carpetas:
 
+- `00_SETUP`: instalador/paquete portable del fork para PCs que no compilan QET localmente.
 - `00_MASTER`: ultimo proyecto aprobado.
 - `01_BASELINES`: copia congelada desde la cual parten las ediciones de una ronda.
 - `02_WORKING`: copias locales o sincronizadas en las que cada usuario trabaja.
@@ -88,7 +92,7 @@ El manifiesto guarda:
 - usuario;
 - hashes SHA-256 del maestro/baseline/copia.
 
-Esto evita cambiar el formato `.qet`. Una futura opcion de QET podria llamarse `Crear copia de trabajo colaborativa...` y escribir exactamente este manifiesto desde una ventana grafica.
+Esto evita cambiar el formato `.qet`. QET ya crea y consume este manifiesto desde la opcion `Archivo > Crear copia de trabajo colaborativa...`.
 
 ## Flujo desde QET
 
@@ -103,9 +107,19 @@ El fork ya incluye un primer puente grafico en el menu `Archivo`:
 - carpeta colaborativa raiz, normalmente `JW_QET_COLLAB`;
 - nombre del usuario/editor.
 
-Luego crea baseline, copia de trabajo y manifiesto sidecar `.jwqet.json`, y abre la copia de trabajo en QET.
+Luego crea baseline, copia de trabajo y manifiesto sidecar `.jwqet.json`, y abre la copia de trabajo en QET. Este paso se ejecuta directamente dentro de QET; no requiere PowerShell ni Python en la PC del usuario.
 
-`Entregar cambios colaborativos...` funciona sobre el proyecto activo. Primero guarda la copia local `.qet`, busca el manifiesto sidecar junto al archivo abierto y prepara la entrega en `03_INCOMING\<usuario>\`.
+`Entregar cambios colaborativos...` funciona sobre el proyecto activo. Primero guarda la copia local `.qet`, busca el manifiesto sidecar junto al archivo abierto y prepara la entrega en `03_INCOMING\<usuario>\`. Este paso tambien se ejecuta directamente dentro de QET.
+
+Para una segunda PC que no tenga compilado el repo, usar el paquete:
+
+```text
+JW_QET_COLLAB\00_SETUP\JW_QET_Portable_Setup.exe
+```
+
+Ejecutarlo con doble clic. El instalador autoextraible despliega QET en una ruta corta bajo `%LOCALAPPDATA%\JWControl\JW_QET_Portable` y abre QElectroTech. Ese flujo evita el limite de rutas largas del extractor de Windows.
+
+Como alternativa tecnica, `JW_QET_Portable.7z` se puede extraer manualmente con 7-Zip en una ruta corta como `C:\JW_QET`. No extraer el paquete con Explorer en Escritorio/Documentos si Windows reporta `Ruta de acceso demasiado larga`.
 
 La publicacion/fusion de varias entregas todavia queda fuera de QET en esta iteracion y se ejecuta con `tools/qet_collab_session.py merge`. Ese limite es intencional: el objetivo de este paso es validar apertura y entrega desde QET sin cambiar el formato `.qet` ni introducir locks/servidor.
 
@@ -123,6 +137,12 @@ La publicacion/fusion de varias entregas todavia queda fuera de QET en esta iter
 10. Si la validacion pasa, el integrador promueve el resultado a `00_MASTER/Proyecto.qet` y archiva el maestro anterior.
 
 ## Comandos base
+
+Generar paquete portable e instalador autoextraible desde el repo:
+
+```bat
+build-jw-qet-portable-exe.bat
+```
 
 Crear copia de trabajo:
 

@@ -702,7 +702,7 @@ Viabilidad inicial:
 - Flujo operativo MVP elegido: carpeta compartida tipo Google Drive con maestro publicado y copias locales por usuario; GitHub queda para versionar el código del fork y posible respaldo posterior. La herramienta puente es `tools/qet_collab_session.py`. Ver `docs/collaboration/JW_QET_MVP_WORKFLOW.md`.
 - Validación local del MVP completada en `build\qet-collab-mvp`: una ronda exitosa publicó `JW_QET_COLLAB\04_PUBLISHED\Proyecto_Publicado.qet`; una ronda conflictiva en `JW_QET_CONFLICT` rechazó publicar cuando dos usuarios modificaron el mismo folio.
 - Workspace real de Google Drive configurado en `H:\Mi unidad\01_JW_CONTROL\04_PRODUCTOS\03_ACTIVOS\JWPLC_LAUNDRY\03_IMPLEMENTACIONES_CLIENTE\2026-008_KOKETA\02_DIAGRAMA_ELECTRICO\JW_QET_COLLAB`, con maestro inicial en `00_MASTER\Proyecto.qet` y copia de trabajo para `jeykc` en `02_WORKING\jeykc`.
-- Primer puente UI agregado en `QETDiagramEditor`: `Archivo > Crear copia de trabajo colaborativa...` ejecuta `checkout` y abre la copia local; `Archivo > Entregar cambios colaborativos...` guarda el proyecto activo y ejecuta `submit`. La fusion/publicacion sigue fuera de QET en esta iteracion.
+- Primer puente UI agregado en `QETDiagramEditor`: `Archivo > Crear copia de trabajo colaborativa...` realiza el checkout directamente en Qt y abre la copia local; `Archivo > Entregar cambios colaborativos...` guarda el proyecto activo y realiza el submit directamente en Qt usando el manifiesto sidecar. La fusion/publicacion sigue fuera de QET en esta iteracion.
 
 ## Siguientes pasos propuestos
 

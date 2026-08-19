@@ -29,7 +29,6 @@
 #include <QUndoGroup>
 
 class QMdiSubWindow;
-class QJsonObject;
 class QETProject;
 class QETResult;
 class ProjectView;
@@ -100,9 +99,6 @@ class QETDiagramEditor : public QETMainWindow
 		QMdiSubWindow *subWindowForWidget(QWidget *) const;
 		void updateUsageTrackersActiveState();
 		void updateWindowModifiedState();
-		QString collaborationPythonProgram() const;
-		QString collaborationScriptPath() const;
-		QJsonObject runCollaborationTool(const QStringList &, bool *, QString *) const;
 
 	signals:
 		void syncElementsPanel();

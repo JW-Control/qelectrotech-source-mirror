@@ -54,9 +54,11 @@
 #include "TerminalStrip/ui/addterminalstripitemdialog.h"
 #include "wiringlistexport.h"
 #include "ui/terminalnumberingdialog.h"
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QInputDialog>
@@ -66,13 +68,356 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QProcess>
-#include <QProcessEnvironment>
+#include <QRegularExpression>
+#include <QSaveFile>
 #include <QStandardPaths>
 #ifdef BUILD_WITHOUT_KF
 #	include "ui/nokde/kautosavefile.h"
 #else
 #	include <KAutoSaveFile>
 #endif
+
+namespace
+{
+	const QString jw_collab_schema = QStringLiteral("jw-qet-collab-session.v1");
+	const QString jw_manifest_suffix = QStringLiteral(".jwqet.json");
+
+	QString jwCollabNowIso()
+	{
+		return(QDateTime::currentDateTime().toString(Qt::ISODate));
+	}
+
+	QString jwCollabTimestamp()
+	{
+		return(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss")));
+	}
+
+	QString jwCollabAbsolutePath(const QString &path)
+	{
+		return(QDir::cleanPath(QFileInfo(path).absoluteFilePath()));
+	}
+
+	QString jwCollabManifestPathFor(const QString &qet_path)
+	{
+		return(qet_path + jw_manifest_suffix);
+	}
+
+	QString jwCollabUserSlug(const QString &user)
+	{
+		QString slug = user.trimmed();
+		slug.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_.-]+")), QStringLiteral("_"));
+		slug = slug.remove(QRegularExpression(QStringLiteral("^[._-]+|[._-]+$")));
+		return(slug.isEmpty() ? QStringLiteral("usuario") : slug);
+	}
+
+	QString jwCollabUniquePath(const QString &path)
+	{
+		if (!QFileInfo::exists(path))
+			return(path);
+
+		const QFileInfo file_info(path);
+		const QString base_dir = file_info.absolutePath();
+		const QString base_name = file_info.completeBaseName();
+		const QString suffix = file_info.suffix();
+
+		for (int index = 2; index < 1000; ++index)
+		{
+			const QString file_name = suffix.isEmpty()
+					? QStringLiteral("%1-%2").arg(base_name).arg(index)
+					: QStringLiteral("%1-%2.%3").arg(base_name).arg(index).arg(suffix);
+			const QString candidate = QDir(base_dir).absoluteFilePath(file_name);
+			if (!QFileInfo::exists(candidate))
+				return(candidate);
+		}
+
+		return(QString());
+	}
+
+	bool jwCollabRequireQetFile(const QString &path, const QString &label, QString *absolute_path, QString *error_message)
+	{
+		const QFileInfo file_info(path);
+		if (!file_info.exists())
+		{
+			if (error_message)
+				*error_message = QObject::tr("%1 no existe:\n%2").arg(label, QDir::toNativeSeparators(path));
+			return(false);
+		}
+		if (!file_info.isFile())
+		{
+			if (error_message)
+				*error_message = QObject::tr("%1 no es un archivo:\n%2").arg(label, QDir::toNativeSeparators(path));
+			return(false);
+		}
+		if (file_info.suffix().toLower() != QStringLiteral("qet"))
+		{
+			if (error_message)
+				*error_message = QObject::tr("%1 debe ser un archivo .qet:\n%2").arg(label, QDir::toNativeSeparators(path));
+			return(false);
+		}
+
+		if (absolute_path)
+			*absolute_path = jwCollabAbsolutePath(path);
+		return(true);
+	}
+
+	bool jwCollabFileSha256(const QString &path, QString *sha256, QString *error_message)
+	{
+		QFile file(path);
+		if (!file.open(QIODevice::ReadOnly))
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo leer para calcular SHA-256:\n%1\n%2").arg(
+							QDir::toNativeSeparators(path),
+							file.errorString());
+			return(false);
+		}
+
+		QCryptographicHash hash(QCryptographicHash::Sha256);
+		while (!file.atEnd())
+			hash.addData(file.read(1024 * 1024));
+
+		if (sha256)
+			*sha256 = QString::fromLatin1(hash.result().toHex());
+		return(true);
+	}
+
+	bool jwCollabCopyFile(const QString &source, const QString &destination, bool overwrite, QString *error_message)
+	{
+		const QFileInfo destination_info(destination);
+		if (!QDir().mkpath(destination_info.absolutePath()))
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo crear la carpeta:\n%1").arg(
+							QDir::toNativeSeparators(destination_info.absolutePath()));
+			return(false);
+		}
+
+		if (QFileInfo::exists(destination))
+		{
+			if (!overwrite)
+			{
+				if (error_message)
+					*error_message = QObject::tr("La salida ya existe:\n%1").arg(QDir::toNativeSeparators(destination));
+				return(false);
+			}
+			if (!QFile::remove(destination))
+			{
+				if (error_message)
+					*error_message = QObject::tr("No se pudo reemplazar la salida existente:\n%1").arg(
+								QDir::toNativeSeparators(destination));
+				return(false);
+			}
+		}
+
+		if (!QFile::copy(source, destination))
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo copiar:\n%1\nhacia:\n%2").arg(
+							QDir::toNativeSeparators(source),
+							QDir::toNativeSeparators(destination));
+			return(false);
+		}
+		return(true);
+	}
+
+	bool jwCollabWriteJson(const QString &path, const QJsonObject &payload, QString *error_message)
+	{
+		const QFileInfo file_info(path);
+		if (!QDir().mkpath(file_info.absolutePath()))
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo crear la carpeta:\n%1").arg(
+							QDir::toNativeSeparators(file_info.absolutePath()));
+			return(false);
+		}
+
+		QSaveFile file(path);
+		if (!file.open(QIODevice::WriteOnly))
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo escribir el manifiesto:\n%1\n%2").arg(
+							QDir::toNativeSeparators(path),
+							file.errorString());
+			return(false);
+		}
+
+		file.write(QJsonDocument(payload).toJson(QJsonDocument::Indented));
+		if (!file.commit())
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo finalizar la escritura:\n%1\n%2").arg(
+							QDir::toNativeSeparators(path),
+							file.errorString());
+			return(false);
+		}
+		return(true);
+	}
+
+	bool jwCollabReadJson(const QString &path, QJsonObject *payload, QString *error_message)
+	{
+		QFile file(path);
+		if (!file.open(QIODevice::ReadOnly))
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo leer el manifiesto:\n%1\n%2").arg(
+							QDir::toNativeSeparators(path),
+							file.errorString());
+			return(false);
+		}
+
+		QJsonParseError parse_error;
+		const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parse_error);
+		if (parse_error.error != QJsonParseError::NoError || !document.isObject())
+		{
+			if (error_message)
+				*error_message = QObject::tr("Manifiesto JSON inválido:\n%1\n%2").arg(
+							QDir::toNativeSeparators(path),
+							parse_error.errorString());
+			return(false);
+		}
+
+		if (payload)
+			*payload = document.object();
+		return(true);
+	}
+
+	QJsonObject jwCollabCheckout(const QString &master_path, const QString &workspace_path, const QString &user, bool *ok, QString *error_message)
+	{
+		if (ok)
+			*ok = false;
+
+		QString master_absolute_path;
+		if (!jwCollabRequireQetFile(master_path, QObject::tr("El maestro"), &master_absolute_path, error_message))
+			return(QJsonObject());
+
+		const QString workspace_absolute_path = jwCollabAbsolutePath(workspace_path);
+		const QString stamp = jwCollabTimestamp();
+		const QString slug = jwCollabUserSlug(user);
+		const QFileInfo master_info(master_absolute_path);
+		const QDir workspace_dir(workspace_absolute_path);
+
+		const QString baseline_dir = workspace_dir.absoluteFilePath(QStringLiteral("01_BASELINES"));
+		const QString working_dir = QDir(workspace_dir.absoluteFilePath(QStringLiteral("02_WORKING"))).absoluteFilePath(slug);
+		const QString incoming_dir = QDir(workspace_dir.absoluteFilePath(QStringLiteral("03_INCOMING"))).absoluteFilePath(slug);
+		const QString published_dir = workspace_dir.absoluteFilePath(QStringLiteral("04_PUBLISHED"));
+		const QString logs_dir = workspace_dir.absoluteFilePath(QStringLiteral("06_LOGS"));
+
+		const QString baseline_path = jwCollabUniquePath(QDir(baseline_dir).absoluteFilePath(stamp + QStringLiteral("_") + master_info.fileName()));
+		const QString working_name = QStringLiteral("%1_%2_%3.%4").arg(
+					master_info.completeBaseName(),
+					slug,
+					stamp,
+					master_info.suffix());
+		const QString working_path = jwCollabUniquePath(QDir(working_dir).absoluteFilePath(working_name));
+		if (baseline_path.isEmpty() || working_path.isEmpty())
+		{
+			if (error_message)
+				*error_message = QObject::tr("No se pudo generar una ruta única para la copia colaborativa.");
+			return(QJsonObject());
+		}
+		const QString incoming_path = QDir(incoming_dir).absoluteFilePath(QFileInfo(working_path).fileName());
+
+		QString master_sha256;
+		if (!jwCollabFileSha256(master_absolute_path, &master_sha256, error_message))
+			return(QJsonObject());
+		if (!jwCollabCopyFile(master_absolute_path, baseline_path, false, error_message))
+			return(QJsonObject());
+		if (!jwCollabCopyFile(baseline_path, working_path, false, error_message))
+			return(QJsonObject());
+
+		QString baseline_sha256;
+		QString working_sha256;
+		if (!jwCollabFileSha256(baseline_path, &baseline_sha256, error_message) ||
+			!jwCollabFileSha256(working_path, &working_sha256, error_message))
+			return(QJsonObject());
+
+		QJsonObject manifest;
+		manifest.insert(QStringLiteral("schema"), jw_collab_schema);
+		manifest.insert(QStringLiteral("created_at"), jwCollabNowIso());
+		manifest.insert(QStringLiteral("status"), QStringLiteral("checked_out"));
+		manifest.insert(QStringLiteral("user"), user);
+		manifest.insert(QStringLiteral("user_slug"), slug);
+		manifest.insert(QStringLiteral("master_path"), master_absolute_path);
+		manifest.insert(QStringLiteral("workspace_path"), workspace_absolute_path);
+		manifest.insert(QStringLiteral("baseline_path"), jwCollabAbsolutePath(baseline_path));
+		manifest.insert(QStringLiteral("working_path"), jwCollabAbsolutePath(working_path));
+		manifest.insert(QStringLiteral("incoming_path"), jwCollabAbsolutePath(incoming_path));
+		manifest.insert(QStringLiteral("published_dir"), jwCollabAbsolutePath(published_dir));
+		manifest.insert(QStringLiteral("logs_dir"), jwCollabAbsolutePath(logs_dir));
+		manifest.insert(QStringLiteral("master_sha256"), master_sha256);
+		manifest.insert(QStringLiteral("baseline_sha256"), baseline_sha256);
+		manifest.insert(QStringLiteral("working_sha256"), working_sha256);
+
+		const QString manifest_path = jwCollabManifestPathFor(jwCollabAbsolutePath(working_path));
+		if (!jwCollabWriteJson(manifest_path, manifest, error_message))
+			return(QJsonObject());
+
+		QJsonObject log_manifest = manifest;
+		log_manifest.insert(QStringLiteral("manifest_path"), jwCollabAbsolutePath(manifest_path));
+		if (!jwCollabWriteJson(QDir(logs_dir).absoluteFilePath(QStringLiteral("%1_checkout_%2.json").arg(stamp, slug)), log_manifest, error_message))
+			return(QJsonObject());
+
+		manifest.insert(QStringLiteral("manifest_path"), jwCollabAbsolutePath(manifest_path));
+		if (ok)
+			*ok = true;
+		return(manifest);
+	}
+
+	QJsonObject jwCollabSubmit(const QString &manifest_path, bool *ok, QString *error_message)
+	{
+		if (ok)
+			*ok = false;
+
+		QJsonObject manifest;
+		if (!jwCollabReadJson(manifest_path, &manifest, error_message))
+			return(QJsonObject());
+
+		if (manifest.value(QStringLiteral("schema")).toString() != jw_collab_schema)
+		{
+			if (error_message)
+				*error_message = QObject::tr("Manifiesto colaborativo no compatible:\n%1").arg(
+							QDir::toNativeSeparators(manifest_path));
+			return(QJsonObject());
+		}
+
+		QString working_path;
+		if (!jwCollabRequireQetFile(manifest.value(QStringLiteral("working_path")).toString(), QObject::tr("La copia de trabajo"), &working_path, error_message))
+			return(QJsonObject());
+
+		const QString incoming_path = jwCollabAbsolutePath(manifest.value(QStringLiteral("incoming_path")).toString());
+		if (!jwCollabCopyFile(working_path, incoming_path, true, error_message))
+			return(QJsonObject());
+
+		QString working_sha256;
+		QString incoming_sha256;
+		if (!jwCollabFileSha256(working_path, &working_sha256, error_message) ||
+			!jwCollabFileSha256(incoming_path, &incoming_sha256, error_message))
+			return(QJsonObject());
+
+		QJsonObject submitted = manifest;
+		submitted.insert(QStringLiteral("status"), QStringLiteral("submitted"));
+		submitted.insert(QStringLiteral("submitted_at"), jwCollabNowIso());
+		submitted.insert(QStringLiteral("incoming_path"), incoming_path);
+		submitted.insert(QStringLiteral("working_sha256"), working_sha256);
+		submitted.insert(QStringLiteral("incoming_sha256"), incoming_sha256);
+
+		const QString incoming_manifest_path = jwCollabManifestPathFor(incoming_path);
+		QJsonObject incoming_manifest = submitted;
+		incoming_manifest.insert(QStringLiteral("manifest_path"), incoming_manifest_path);
+		if (!jwCollabWriteJson(incoming_manifest_path, incoming_manifest, error_message))
+			return(QJsonObject());
+
+		const QString logs_dir = submitted.value(QStringLiteral("logs_dir")).toString();
+		const QString slug = submitted.value(QStringLiteral("user_slug")).toString(QStringLiteral("usuario"));
+		if (!jwCollabWriteJson(QDir(logs_dir).absoluteFilePath(QStringLiteral("%1_submit_%2.json").arg(jwCollabTimestamp(), slug)), incoming_manifest, error_message))
+			return(QJsonObject());
+
+		submitted.insert(QStringLiteral("manifest_path"), incoming_manifest_path);
+		if (ok)
+			*ok = true;
+		return(submitted);
+	}
+}
 
 /**
 	@brief QETDiagramEditor::QETDiagramEditor
@@ -1057,142 +1402,6 @@ void QETDiagramEditor::saveAs()
 }
 
 /**
-	@brief QETDiagramEditor::collaborationPythonProgram
-	@return Python executable used by the JW collaboration helper.
-*/
-QString QETDiagramEditor::collaborationPythonProgram() const
-{
-	const QString env_python = qEnvironmentVariable("QET_COLLAB_PYTHON").trimmed();
-	if (!env_python.isEmpty())
-		return(env_python);
-
-#if defined(Q_OS_WIN32) || defined(Q_OS_WIN64)
-	const QString msys_python = QStringLiteral("C:/msys64/ucrt64/bin/python.exe");
-	if (QFileInfo::exists(msys_python))
-		return(msys_python);
-#endif
-
-	const QString python3 = QStandardPaths::findExecutable(QStringLiteral("python3"));
-	if (!python3.isEmpty())
-		return(python3);
-
-	const QString python = QStandardPaths::findExecutable(QStringLiteral("python"));
-	if (!python.isEmpty())
-		return(python);
-
-	return(QStringLiteral("python"));
-}
-
-/**
-	@brief QETDiagramEditor::collaborationScriptPath
-	@return Path to tools/qet_collab_session.py in the source checkout.
-*/
-QString QETDiagramEditor::collaborationScriptPath() const
-{
-	const QString script_relative_path = QStringLiteral("tools/qet_collab_session.py");
-	QStringList roots;
-	roots << QDir::currentPath();
-	roots << QCoreApplication::applicationDirPath();
-	roots << QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
-
-	for (const QString &root: roots)
-	{
-		const QString candidate = QDir::cleanPath(QDir(root).absoluteFilePath(script_relative_path));
-		if (QFileInfo::exists(candidate))
-			return(candidate);
-	}
-
-	return(QDir::cleanPath(QDir(QDir::currentPath()).absoluteFilePath(script_relative_path)));
-}
-
-/**
-	@brief QETDiagramEditor::runCollaborationTool
-	Run the JW collaboration helper and parse its JSON output.
-*/
-QJsonObject QETDiagramEditor::runCollaborationTool(
-		const QStringList &arguments,
-		bool *ok,
-		QString *error_message) const
-{
-	if (ok)
-		*ok = false;
-	if (error_message)
-		error_message->clear();
-
-	const QString script_path = collaborationScriptPath();
-	if (!QFileInfo::exists(script_path))
-	{
-		if (error_message)
-		{
-			*error_message = tr("No se encontró la herramienta colaborativa:\n%1").arg(
-						QDir::toNativeSeparators(script_path));
-		}
-		return(QJsonObject());
-	}
-
-	QStringList process_arguments;
-	process_arguments << script_path;
-	process_arguments << arguments;
-
-	QProcess process;
-	QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
-	environment.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
-	process.setProcessEnvironment(environment);
-	process.start(collaborationPythonProgram(), process_arguments);
-
-	if (!process.waitForStarted())
-	{
-		if (error_message)
-		{
-			*error_message = tr("No se pudo iniciar Python para la herramienta colaborativa:\n%1").arg(
-						process.errorString());
-		}
-		return(QJsonObject());
-	}
-
-	if (!process.waitForFinished(-1))
-	{
-		if (error_message)
-		{
-			*error_message = tr("La herramienta colaborativa no terminó correctamente:\n%1").arg(
-						process.errorString());
-		}
-		return(QJsonObject());
-	}
-
-	const QByteArray stdout_data = process.readAllStandardOutput();
-	const QByteArray stderr_data = process.readAllStandardError();
-	if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
-	{
-		QString details = QString::fromUtf8(stderr_data).trimmed();
-		if (details.isEmpty())
-			details = QString::fromUtf8(stdout_data).trimmed();
-		if (error_message)
-		{
-			*error_message = tr("La herramienta colaborativa falló con código %1.\n%2").arg(
-						process.exitCode()).arg(details);
-		}
-		return(QJsonObject());
-	}
-
-	QJsonParseError parse_error;
-	const QJsonDocument document = QJsonDocument::fromJson(stdout_data, &parse_error);
-	if (parse_error.error != QJsonParseError::NoError || !document.isObject())
-	{
-		if (error_message)
-		{
-			*error_message = tr("La herramienta colaborativa no devolvió un JSON válido.\n%1").arg(
-						QString::fromUtf8(stdout_data).trimmed());
-		}
-		return(QJsonObject());
-	}
-
-	if (ok)
-		*ok = true;
-	return(document.object());
-}
-
-/**
 	@brief QETDiagramEditor::createCollaborativeWorkingCopy
 	Create a working copy from a shared master and open it.
 */
@@ -1237,13 +1446,10 @@ void QETDiagramEditor::createCollaborativeWorkingCopy()
 
 	bool tool_ok = false;
 	QString error_message;
-	const QJsonObject result = runCollaborationTool(
-				QStringList()
-				<< QStringLiteral("checkout")
-				<< QStringLiteral("--master") << master_path
-				<< QStringLiteral("--workspace") << workspace_path
-				<< QStringLiteral("--user") << user
-				<< QStringLiteral("--json"),
+	const QJsonObject result = jwCollabCheckout(
+				master_path,
+				workspace_path,
+				user,
 				&tool_ok,
 				&error_message);
 
@@ -1324,12 +1530,8 @@ void QETDiagramEditor::submitCollaborativeChanges()
 
 	bool tool_ok = false;
 	QString error_message;
-	const QJsonObject result = runCollaborationTool(
-				QStringList()
-				<< QStringLiteral("submit")
-				<< QStringLiteral("--manifest") << manifest_path
-				<< QStringLiteral("--force")
-				<< QStringLiteral("--json"),
+	const QJsonObject result = jwCollabSubmit(
+				manifest_path,
 				&tool_ok,
 				&error_message);
 

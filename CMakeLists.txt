@@ -144,9 +144,12 @@ endif()
 
 # JW Control collaboration UI is kept outside the upstream source list so the
 # integration remains incremental and easy to review/remove independently.
+# The workspace guard generates the collaboration source in the build tree so
+# missing Google Drive folders are never recreated silently by a second PC.
+include(cmake/jw_collab_workspace_guard.cmake)
 target_sources(${PROJECT_NAME} PRIVATE
     ${QET_DIR}/sources/jwcollabpublisher.cpp
-    ${QET_DIR}/sources/jwcollabselection.cpp
+    ${JW_COLLAB_SELECTION_SOURCE}
     ${QET_DIR}/sources/jwcollabcontinuation.cpp
 )
 

@@ -17,6 +17,7 @@
 */
 
 #include "backupdialog.h"
+#include "qetapp.h"
 
 #include <QLabel>
 #include <QPushButton>
@@ -30,14 +31,27 @@
 BackupDialog::BackupDialog(QWidget *parent) :
 	QDialog(parent)
 {
-	setWindowTitle(tr("Créer une copie de sauvegarde ?", "window title"));
+	// qet_es currently leaves the four strings in this dialog unfinished,
+	// which makes Qt fall back to the French source text. Keep the normal
+	// translation path for every other language, and provide a scoped JW QET
+	// fallback only when the application's selected language is Spanish.
+	const bool spanish_ui =
+		QETApp::langFromSetting().section('_', 0, 0).compare(
+			QStringLiteral("es"), Qt::CaseInsensitive) == 0;
+
+	setWindowTitle(
+		spanish_ui
+			? QStringLiteral("¿Crear una copia de seguridad?")
+			: tr("Créer une copie de sauvegarde ?", "window title"));
 	setFixedSize(450, 100);
 
 	auto main_layout = new QVBoxLayout(this);
 
 	auto label = new QLabel(
-		tr("Souhaitez-vous créer une copie de sauvegarde ?",
-		   "dialog message"));
+		spanish_ui
+			? QStringLiteral("¿Desea crear una copia de seguridad?")
+			: tr("Souhaitez-vous créer une copie de sauvegarde ?",
+			     "dialog message"));
 	label->setWordWrap(true);
 	main_layout->addWidget(label);
 
@@ -46,8 +60,10 @@ BackupDialog::BackupDialog(QWidget *parent) :
 	auto button_layout = new QHBoxLayout();
 	button_layout->addStretch();
 
-	auto yes_button = new QPushButton(tr("Oui", "yes button"));
-	auto no_button = new QPushButton(tr("Non", "no button"));
+	auto yes_button = new QPushButton(
+		spanish_ui ? QStringLiteral("Sí") : tr("Oui", "yes button"));
+	auto no_button = new QPushButton(
+		spanish_ui ? QStringLiteral("No") : tr("Non", "no button"));
 
 	button_layout->addWidget(yes_button);
 	button_layout->addWidget(no_button);

@@ -17,6 +17,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QEvent>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QJsonArray>

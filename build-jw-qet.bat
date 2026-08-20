@@ -45,6 +45,17 @@ if "%CLEAN_BUILD%"=="1" (
     if exist "%BUILD_DIR%" rmdir /S /Q "%BUILD_DIR%"
 )
 
+rem CMakeCache.txt contiene rutas absolutas. Si el repo fue movido o
+rem clonado en otra ubicacion, el cache anterior no puede reutilizarse.
+if exist "%BUILD_DIR%\CMakeCache.txt" (
+    findstr /L /I /X /C:"CMAKE_HOME_DIRECTORY:INTERNAL=%REPO:\=/%" "%BUILD_DIR%\CMakeCache.txt" >nul 2>&1
+    if errorlevel 1 (
+        echo [JW QET] Cache CMake de Release pertenece a otra ruta.
+        echo [JW QET] Regenerando build Release automaticamente...
+        rmdir /S /Q "%BUILD_DIR%"
+    )
+)
+
 echo ============================================================
 echo   JW QET - Build Release + Portable
 echo ============================================================
@@ -89,7 +100,7 @@ if errorlevel 1 exit /b 1
 echo.
 echo ============================================================
 echo   JW QET - BUILD COMPLETADO
-echo ============================================================
+ echo ============================================================
 echo.
 echo Artefactos finales:
 echo   %REPO%\release

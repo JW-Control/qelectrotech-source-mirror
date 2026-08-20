@@ -142,6 +142,12 @@ else()
     )
 endif()
 
+# JW Control collaboration UI is kept outside the upstream source list so the
+# integration remains incremental and easy to review/remove independently.
+target_sources(${PROJECT_NAME} PRIVATE
+    ${QET_DIR}/sources/jwcollabpublisher.cpp
+)
+
 # The default build only compiles the tracked .ts files to .qm (lrelease).
 # Refreshing the .ts from the sources (lupdate) is a developer action behind
 # the explicit "update_translations" target below: running lupdate on every

@@ -80,16 +80,24 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if exist "%REPO%.git" (
-    echo.
-    echo [INFO] Sincronizando submodulos del repositorio...
-    "%MSYS_ROOT%\usr\bin\git.exe" -C "%REPO%." submodule update --init --recursive
-    if errorlevel 1 (
-        echo [WARN] No se pudieron sincronizar los submodulos automaticamente.
-        echo        Ejecuta luego: git submodule update --init --recursive
-    )
+if not exist "%REPO%.git" goto after_submodules
+
+echo.
+echo [INFO] Sincronizando submodulos del repositorio con Git for Windows...
+where git.exe >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] No se encontro Git for Windows en PATH.
+    echo        Ejecuta luego: git submodule update --init --recursive
+    goto after_submodules
 )
 
+git.exe -C "%REPO%." submodule update --init --recursive
+if errorlevel 1 (
+    echo [WARN] No se pudieron sincronizar los submodulos automaticamente.
+    echo        Ejecuta luego: git submodule update --init --recursive
+)
+
+:after_submodules
 echo.
 echo [5/5] Verificando 7-Zip para Windows...
 if exist "C:\Program Files\7-Zip\7z.exe" if exist "C:\Program Files\7-Zip\7z.sfx" goto sevenzip_ok

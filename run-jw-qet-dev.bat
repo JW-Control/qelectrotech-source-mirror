@@ -15,6 +15,7 @@ set "SKIP_SYNC=0"
 set "SKIP_BUILD=0"
 set "CLEAN_BUILD=0"
 set "QT_DEBUG=0"
+set "DETACH=0"
 
 :parse_options
 if "%~1"=="" goto options_done
@@ -38,9 +39,19 @@ if /I "%~1"=="--qt-debug" (
     shift
     goto parse_options
 )
+if /I "%~1"=="--detach" (
+    set "DETACH=1"
+    shift
+    goto parse_options
+)
+if /I "%~1"=="--wait" (
+    set "DETACH=0"
+    shift
+    goto parse_options
+)
 
 echo [ERROR] Opcion no reconocida: %~1
-echo Opciones: --no-pull, --no-build, --clean, --qt-debug
+echo Opciones: --no-pull, --no-build, --clean, --qt-debug, --detach, --wait
 exit /b 2
 
 :options_done
@@ -86,6 +97,21 @@ echo EXE      : %EXE%
 echo Elements : %REPO%\elements
 echo Lang     : %REPO%\lang
 echo.
+
+if "%DETACH%"=="1" (
+    echo [JW QET] Iniciando QElectroTech en proceso independiente...
+    pushd "%REPO%"
+    start "" /D "%REPO%" "%EXE%" "--common-elements-dir=%REPO%\elements" "--common-tbt-dir=%REPO%\titleblocks" "--lang-dir=%REPO%\lang" >nul 2>&1
+    if errorlevel 1 (
+        popd
+        echo [ERROR] Windows no pudo iniciar QElectroTech.
+        exit /b 1
+    )
+    popd
+    echo [OK] QElectroTech iniciado.
+    exit /b 0
+)
+
 echo Cierra QElectroTech para volver a esta consola.
 echo.
 
@@ -117,7 +143,7 @@ if errorlevel 1 (
 
 echo ============================================================
 echo   JW QET - Sincronizando repositorio
- echo ============================================================
+echo ============================================================
 echo.
 
 set "DIRTY=0"

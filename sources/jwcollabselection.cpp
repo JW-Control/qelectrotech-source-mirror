@@ -11,6 +11,7 @@
 #include "qetdiagrameditor.h"
 #include "qetproject.h"
 
+#include <algorithm>
 #include <QAction>
 #include <QApplication>
 #include <QCoreApplication>

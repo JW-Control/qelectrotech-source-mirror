@@ -148,7 +148,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${QET_DIR}/sources/jwcollabpublisher.cpp
     ${QET_DIR}/sources/jwcollabselection.cpp
     ${QET_DIR}/sources/jwcollabcontinuation.cpp
-    ${QET_DIR}/sources/jwcollabautoresume.cpp
 )
 
 # The default build only compiles the tracked .ts files to .qm (lrelease).
@@ -342,7 +341,8 @@ if (NOT MINGW)
     install(DIRECTORY titleblocks DESTINATION share/qelectrotech)
     install(FILES LICENSE ELEMENTS.LICENSE CREDIT README ChangeLog DESTINATION share/doc/qelectrotech)
     if(UNIX AND NOT APPLE)
-        install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION ${QET_MIME_PACKAGE_PATH})
+        install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION share/applications)
+        install(FILES misc/qelectrotech.xml    DESTINATION ${QET_MIME_PACKAGE_PATH})
         install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_APPDATA_PATH})
     endif()
     install(FILES ${QM_FILES} DESTINATION ${QET_LANG_PATH})

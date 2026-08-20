@@ -17,7 +17,7 @@
 */
 
 #include "backupdialog.h"
-#include "qetapp.h"
+#include "../qetapp.h"
 
 #include <QLabel>
 #include <QPushButton>

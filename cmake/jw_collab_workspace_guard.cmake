@@ -316,5 +316,26 @@ set(_replacement_tmp [=[
 ]=])
 _jw_collab_replace_exact("local publish temp" "${_anchor_tmp}" "${_replacement_tmp}")
 
+set(_anchor_open_validation [=[
+		const QString path = editor->currentProject()->filePath();
+		const QString manifest_path = manifestForQet(path);
+]=])
+set(_replacement_open_validation [=[
+		const QString path = editor->currentProject()->filePath();
+		const QString workspace = workspaceFromPath(path);
+		if (!workspace.isEmpty() && !editor->property("jw_workspace_guard_checked").toBool())
+		{
+			editor->setProperty("jw_workspace_guard_checked", true);
+			if (!ensureWorkspaceReady(editor, workspace))
+			{
+				label->setText(QObject::tr("COLAB: workspace bloqueado · revisa sincronización de Google Drive"));
+				label->show();
+				return;
+			}
+		}
+		const QString manifest_path = manifestForQet(path);
+]=])
+_jw_collab_replace_exact("open workspace validation" "${_anchor_open_validation}" "${_replacement_open_validation}")
+
 file(WRITE "${JW_COLLAB_SELECTION_SOURCE}" "${_jw_collab_content}")
 message(STATUS "JW collaboration workspace guard: ${JW_COLLAB_SELECTION_SOURCE}")

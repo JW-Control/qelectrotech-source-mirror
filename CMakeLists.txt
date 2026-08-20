@@ -146,6 +146,7 @@ endif()
 # integration remains incremental and easy to review/remove independently.
 target_sources(${PROJECT_NAME} PRIVATE
     ${QET_DIR}/sources/jwcollabpublisher.cpp
+    ${QET_DIR}/sources/jwcollabselection.cpp
 )
 
 # The default build only compiles the tracked .ts files to .qm (lrelease).
@@ -304,6 +305,14 @@ target_include_directories(
     ${QET_DIR}/sources/dataBase
     ${QET_DIR}/sources/dataBase/ui
     ${QET_DIR}/sources/factory/ui
+    ${QET_DIR}/sources/PropertiesEditor
+    ${QET_DIR}/sources/PropertiesEditor/ui
+    ${QET_DIR}/sources/TerminalStrip
+    ${QET_DIR}/sources/TerminalStrip/ui
+    ${QET_DIR}/sources/logging
+    ${QET_DIR}/sources/logging/ui
+    ${QET_DIR}/sources/import/edz
+    ${QET_DIR}/sources/import/edz/lzma
     ${QET_DIR}/sources/print
     ${QET_DIR}/sources/svg
 )

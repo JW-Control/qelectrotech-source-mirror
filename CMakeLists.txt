@@ -314,6 +314,7 @@ target_include_directories(
     ${QET_DIR}/sources/logging
     ${QET_DIR}/sources/logging/ui
     ${QET_DIR}/sources/import/edz
+    ${QET_DIR}/sources/import/edz/lzma
     ${QET_DIR}/sources/print
     ${QET_DIR}/sources/svg
 )
@@ -341,8 +342,7 @@ if (NOT MINGW)
     install(DIRECTORY titleblocks DESTINATION share/qelectrotech)
     install(FILES LICENSE ELEMENTS.LICENSE CREDIT README ChangeLog DESTINATION share/doc/qelectrotech)
     if(UNIX AND NOT APPLE)
-        install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION share/applications)
-        install(FILES misc/qelectrotech.xml    DESTINATION ${QET_MIME_PACKAGE_PATH})
+        install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION ${QET_MIME_PACKAGE_PATH})
         install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_APPDATA_PATH})
     endif()
     install(FILES ${QM_FILES} DESTINATION ${QET_LANG_PATH})

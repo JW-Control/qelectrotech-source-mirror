@@ -18,13 +18,179 @@
 
 #include "backupdialog.h"
 #include "../qetapp.h"
+#include "../qetdiagrameditor.h"
+#include "../qetproject.h"
 
+#include <QApplication>
+#include <QDir>
+#include <QEvent>
+#include <QFile>
+#include <QFileInfo>
 #include <QHBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QLabel>
 #include <QPushButton>
 #include <QSettings>
 #include <QTimer>
 #include <QVBoxLayout>
+
+namespace
+{
+	const QString jwAutoResumeManifestSuffix = QStringLiteral(".jwqet.json");
+
+	QJsonObject jwAutoResumeReadJson(const QString &path)
+	{
+		QFile file(path);
+		if (!file.open(QIODevice::ReadOnly))
+			return {};
+
+		QJsonParseError parse_error;
+		const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parse_error);
+		if (parse_error.error != QJsonParseError::NoError || !document.isObject())
+			return {};
+		return document.object();
+	}
+
+	bool jwAutoResumeIsWorkingCopy(const QString &path)
+	{
+		if (path.trimmed().isEmpty())
+			return false;
+
+		const QFileInfo qet_info(path);
+		if (!qet_info.isFile() || qet_info.suffix().compare(QStringLiteral("qet"), Qt::CaseInsensitive) != 0)
+			return false;
+
+		const QString normalized = QDir::fromNativeSeparators(qet_info.absoluteFilePath());
+		if (!normalized.contains(QStringLiteral("/02_WORKING/"), Qt::CaseInsensitive))
+			return false;
+
+		const QString manifest_path = qet_info.absoluteFilePath() + jwAutoResumeManifestSuffix;
+		if (!QFileInfo::exists(manifest_path))
+			return false;
+
+		const QJsonObject manifest = jwAutoResumeReadJson(manifest_path);
+		if (manifest.value(QStringLiteral("workflow_version")).toInt() < 2)
+			return false;
+
+		const QString status = manifest.value(QStringLiteral("status")).toString();
+		return status == QStringLiteral("checked_out")
+			|| status == QStringLiteral("submitted")
+			|| status == QStringLiteral("refresh_required");
+	}
+
+	QString jwAutoResumeLastWorkingCopy()
+	{
+		QSettings settings;
+		const QString remembered = settings.value(
+				QStringLiteral("jwcollab/last_working_path")).toString();
+		if (jwAutoResumeIsWorkingCopy(remembered))
+			return QFileInfo(remembered).absoluteFilePath();
+
+		// Migration path: older builds only stored QET's normal recent-project
+		// list. Scan it and select the most recent collaborative WORKING copy.
+		for (int index = 1; index <= 10; ++index)
+		{
+			const QString candidate = settings.value(
+					QStringLiteral("projects-recentfiles/file%1").arg(index)).toString();
+			if (jwAutoResumeIsWorkingCopy(candidate))
+				return QFileInfo(candidate).absoluteFilePath();
+		}
+		return {};
+	}
+
+	void jwAutoResumeRemember(const QString &path)
+	{
+		if (!jwAutoResumeIsWorkingCopy(path))
+			return;
+		QSettings settings;
+		settings.setValue(QStringLiteral("jwcollab/last_working_path"),
+				QFileInfo(path).absoluteFilePath());
+		settings.sync();
+	}
+
+	void jwAutoResumeTry(QETDiagramEditor *editor)
+	{
+		if (!editor || editor->property("jw_collab_auto_resume_tried").toBool())
+			return;
+		editor->setProperty("jw_collab_auto_resume_tried", true);
+
+		QSettings settings;
+		if (!settings.value(QStringLiteral("jwcollab/auto_resume_last_session"), true).toBool())
+			return;
+
+		// Never override a project explicitly opened by the user or through the
+		// command line.
+		if (editor->currentProject())
+		{
+			jwAutoResumeRemember(editor->currentProject()->filePath());
+			return;
+		}
+
+		const QString working_path = jwAutoResumeLastWorkingCopy();
+		if (working_path.isEmpty())
+			return;
+
+		if (editor->openAndAddProject(working_path))
+			jwAutoResumeRemember(working_path);
+	}
+
+	void jwAutoResumeObserve(QETDiagramEditor *editor)
+	{
+		if (editor && editor->currentProject())
+			jwAutoResumeRemember(editor->currentProject()->filePath());
+	}
+
+	void jwAutoResumeInstallEditor(QETDiagramEditor *editor)
+	{
+		if (!editor || editor->property("jw_collab_auto_resume_installed").toBool())
+			return;
+		editor->setProperty("jw_collab_auto_resume_installed", true);
+
+		// Let QET finish its normal startup/open-files path first.
+		QTimer::singleShot(450, editor, [editor]() { jwAutoResumeTry(editor); });
+
+		auto *timer = new QTimer(editor);
+		timer->setInterval(2500);
+		QObject::connect(timer, &QTimer::timeout, editor,
+				[editor]() { jwAutoResumeObserve(editor); });
+		timer->start();
+	}
+
+	class JwAutoResumeInstaller : public QObject
+	{
+		public:
+			explicit JwAutoResumeInstaller(QObject *parent = nullptr) : QObject(parent) {}
+
+		protected:
+			bool eventFilter(QObject *watched, QEvent *event) override
+			{
+				if (event->type() == QEvent::Show)
+				{
+					if (auto *editor = qobject_cast<QETDiagramEditor *>(watched))
+						QTimer::singleShot(0, editor,
+								[editor]() { jwAutoResumeInstallEditor(editor); });
+				}
+				return QObject::eventFilter(watched, event);
+			}
+	};
+
+	void jwInstallCollaborativeAutoResume()
+	{
+		if (!qApp)
+			return;
+
+		auto *installer = new JwAutoResumeInstaller(qApp);
+		qApp->installEventFilter(installer);
+
+		for (QWidget *widget : QApplication::topLevelWidgets())
+			if (auto *editor = qobject_cast<QETDiagramEditor *>(widget))
+				jwAutoResumeInstallEditor(editor);
+	}
+}
+
+Q_COREAPP_STARTUP_FUNCTION(jwInstallCollaborativeAutoResume)
 
 /**
 	@brief BackupDialog::BackupDialog
@@ -36,7 +202,7 @@ BackupDialog::BackupDialog(QWidget *parent) :
 	/*
 	 * JW QET keeps QElectroTech's crash-recovery autosave enabled, but the
 	 * upstream editor also asks on every project open whether a timestamped
-	 * copy should be created next to the .qet file.  In the collaborative
+	 * copy should be created next to the .qet file. In the collaborative
 	 * workflow that extra prompt is noisy and redundant with baselines/master
 	 * history, so it is disabled by default for the fork.
 	 *

@@ -2,12 +2,13 @@
 setlocal EnableExtensions
 
 set "REPO=%~dp0"
+if "%REPO:~-1%"=="\" set "REPO=%REPO:~0,-1%"
 set "MSYS_ROOT=C:\msys64"
 set "UCRT_BIN=%MSYS_ROOT%\ucrt64\bin"
 set "PATH=%UCRT_BIN%;%PATH%"
 set "CMAKE=%UCRT_BIN%\cmake.exe"
 set "NINJA=%UCRT_BIN%\ninja.exe"
-set "BUILD_DIR=%REPO%build\jw-qet-qt5-nokf"
+set "BUILD_DIR=%REPO%\build\jw-qet-qt5-nokf"
 
 set "CLEAN_BUILD=0"
 if /I "%~1"=="--clean" (
@@ -82,8 +83,8 @@ if errorlevel 1 (
 
 echo.
 echo [3/3] Generando artefactos portables...
-call "%REPO%package-jw-qet.bat"
-if errorlevel 1 exit /b %ERRORLEVEL%
+call "%REPO%\package-jw-qet.bat"
+if errorlevel 1 exit /b 1
 
 echo.
 echo ============================================================
@@ -91,6 +92,6 @@ echo   JW QET - BUILD COMPLETADO
 echo ============================================================
 echo.
 echo Artefactos finales:
-echo   %REPO%release
+echo   %REPO%\release
 echo.
 exit /b 0

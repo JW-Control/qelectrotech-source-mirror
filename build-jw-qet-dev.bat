@@ -2,12 +2,13 @@
 setlocal EnableExtensions
 
 set "REPO=%~dp0"
+if "%REPO:~-1%"=="\" set "REPO=%REPO:~0,-1%"
 set "MSYS_ROOT=C:\msys64"
 set "UCRT_BIN=%MSYS_ROOT%\ucrt64\bin"
 set "PATH=%UCRT_BIN%;%PATH%"
 set "CMAKE=%UCRT_BIN%\cmake.exe"
 set "NINJA=%UCRT_BIN%\ninja.exe"
-set "BUILD_DIR=%REPO%build\jw-qet-dev"
+set "BUILD_DIR=%REPO%\build\jw-qet-dev"
 
 set "BUILD_TYPE=RelWithDebInfo"
 if defined JW_QET_BUILD_TYPE set "BUILD_TYPE=%JW_QET_BUILD_TYPE%"
@@ -36,7 +37,7 @@ if not exist "%NINJA%" (
     exit /b 1
 )
 
-if not exist "%REPO%elements" (
+if not exist "%REPO%\elements" (
     echo [ERROR] No se encontro el submodulo elements.
     echo Ejecuta:
     echo   git submodule update --init --recursive

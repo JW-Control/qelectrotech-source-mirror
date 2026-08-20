@@ -148,6 +148,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${QET_DIR}/sources/jwcollabpublisher.cpp
     ${QET_DIR}/sources/jwcollabselection.cpp
     ${QET_DIR}/sources/jwcollabcontinuation.cpp
+    ${QET_DIR}/sources/jwcollabautoresume.cpp
 )
 
 # The default build only compiles the tracked .ts files to .qm (lrelease).
@@ -313,7 +314,6 @@ target_include_directories(
     ${QET_DIR}/sources/logging
     ${QET_DIR}/sources/logging/ui
     ${QET_DIR}/sources/import/edz
-    ${QET_DIR}/sources/import/edz/lzma
     ${QET_DIR}/sources/print
     ${QET_DIR}/sources/svg
 )

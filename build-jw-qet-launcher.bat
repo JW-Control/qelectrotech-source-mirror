@@ -6,13 +6,24 @@ if "%REPO:~-1%"=="\" set "REPO=%REPO:~0,-1%"
 
 set "UCRT_BIN=C:\msys64\ucrt64\bin"
 set "CXX=%UCRT_BIN%\g++.exe"
+set "OBJDUMP=%UCRT_BIN%\objdump.exe"
 set "SRC=%REPO%\packaging\windows\jw-qet-launcher.cpp"
 set "OUT=%REPO%\JW-QET-Launcher.exe"
+set "IMPORTS=%TEMP%\jw-qet-launcher-imports-%RANDOM%.txt"
 set "PATH=%UCRT_BIN%;%PATH%"
 
 if not exist "%CXX%" (
     echo [ERROR] No se encontro el compilador UCRT64:
     echo         %CXX%
+    echo.
+    echo Ejecuta primero:
+    echo   setup-jw-qet-dev-environment.bat
+    exit /b 1
+)
+
+if not exist "%OBJDUMP%" (
+    echo [ERROR] No se encontro objdump UCRT64:
+    echo         %OBJDUMP%
     echo.
     echo Ejecuta primero:
     echo   setup-jw-qet-dev-environment.bat
@@ -42,7 +53,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [INFO] Compilando launcher Win32 sin consola...
+echo [INFO] Compilando launcher Win32 autocontenido y sin consola...
 "%CXX%" ^
   -std=c++17 ^
   -O2 ^
@@ -51,6 +62,7 @@ echo [INFO] Compilando launcher Win32 sin consola...
   -Wextra ^
   -municode ^
   -mwindows ^
+  -static ^
   -static-libgcc ^
   -static-libstdc++ ^
   "%SRC%" ^
@@ -66,7 +78,7 @@ if not "%RC%"=="0" (
     echo         Codigo de salida de g++: %RC%
     echo.
     echo Si arriba aparece un error de compilador o linker, copia desde
-    echo [INFO] Compilando launcher Win32 sin consola... hasta esta linea.
+    echo [INFO] Compilando launcher Win32 autocontenido y sin consola... hasta esta linea.
     exit /b %RC%
 )
 
@@ -75,6 +87,30 @@ if not exist "%OUT%" (
     echo         %OUT%
     exit /b 1
 )
+
+echo.
+echo [INFO] Verificando dependencias runtime del launcher...
+"%OBJDUMP%" -p "%OUT%" > "%IMPORTS%"
+if errorlevel 1 (
+    echo [ERROR] No se pudieron inspeccionar las dependencias del launcher.
+    if exist "%IMPORTS%" del /Q "%IMPORTS%" >nul 2>&1
+    exit /b 1
+)
+
+findstr /I /C:"libwinpthread-1.dll" /C:"libgcc_s_seh-1.dll" /C:"libstdc++-6.dll" "%IMPORTS%" >nul 2>&1
+if not errorlevel 1 (
+    echo.
+    echo [ERROR] El launcher aun depende de una DLL runtime de MinGW.
+    echo         Esto no es valido para el launcher autocontenido.
+    echo.
+    findstr /I /C:"DLL Name:" "%IMPORTS%"
+    del /Q "%IMPORTS%" >nul 2>&1
+    del /Q "%OUT%" >nul 2>&1
+    exit /b 1
+)
+
+echo [OK] Sin dependencias dinamicas de libwinpthread/libgcc/libstdc++.
+del /Q "%IMPORTS%" >nul 2>&1
 
 echo.
 echo [OK] Launcher listo:

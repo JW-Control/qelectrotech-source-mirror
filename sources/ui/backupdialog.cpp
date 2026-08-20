@@ -19,10 +19,12 @@
 #include "backupdialog.h"
 #include "../qetapp.h"
 
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSettings>
+#include <QTimer>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 
 /**
 	@brief BackupDialog::BackupDialog
@@ -31,6 +33,26 @@
 BackupDialog::BackupDialog(QWidget *parent) :
 	QDialog(parent)
 {
+	/*
+	 * JW QET keeps QElectroTech's crash-recovery autosave enabled, but the
+	 * upstream editor also asks on every project open whether a timestamped
+	 * copy should be created next to the .qet file.  In the collaborative
+	 * workflow that extra prompt is noisy and redundant with baselines/master
+	 * history, so it is disabled by default for the fork.
+	 *
+	 * The old behaviour can still be restored without rebuilding by setting
+	 * QSettings key "jwcontrol/ask_open_backup" to true.
+	 */
+	QSettings settings;
+	const bool ask_open_backup = settings.value(
+			QStringLiteral("jwcontrol/ask_open_backup"), false).toBool();
+	if (!ask_open_backup)
+	{
+		setAttribute(Qt::WA_DontShowOnScreen, true);
+		QTimer::singleShot(0, this, &QDialog::reject);
+		return;
+	}
+
 	// qet_es currently leaves the four strings in this dialog unfinished,
 	// which makes Qt fall back to the French source text. Keep the normal
 	// translation path for every other language, and provide a scoped JW QET

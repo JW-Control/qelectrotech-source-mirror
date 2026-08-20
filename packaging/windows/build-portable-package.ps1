@@ -1,10 +1,12 @@
 [CmdletBinding()]
 param(
     [string] $BuildDir = "build\jw-qet-qt5-nokf",
-    [string] $OutputRoot = "build\jw-qet-portable",
+    [string] $OutputRoot = "build\p",
+    [string] $ReleaseDir = "release",
     [string] $SevenZip = "",
     [string] $SfxModule = "",
-    [switch] $NoSfx
+    [switch] $NoSfx,
+    [switch] $KeepStage
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,7 +27,8 @@ function Find-FirstExistingPath([string[]] $Paths) {
 function Assert-InsidePath([string] $Path, [string] $Parent) {
     $full_path = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
     $full_parent = [System.IO.Path]::GetFullPath($Parent).TrimEnd('\')
-    if (-not $full_path.StartsWith($full_parent, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $full_path.StartsWith($full_parent + '\', [System.StringComparison]::OrdinalIgnoreCase) -and
+        -not $full_path.Equals($full_parent, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Ruta fuera del directorio esperado: $full_path"
     }
 }
@@ -34,8 +37,15 @@ function Copy-DirectoryContents([string] $Source, [string] $Destination) {
     if (-not (Test-Path -LiteralPath $Source)) {
         throw "No existe la carpeta requerida: $Source"
     }
+
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
-    Get-ChildItem -LiteralPath $Source -Force | Copy-Item -Destination $Destination -Recurse -Force
+
+    & robocopy $Source $Destination /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /NFL /NDL /NJH /NJS /NP
+    $robocopy_exit = $LASTEXITCODE
+
+    if ($robocopy_exit -ge 8) {
+        throw "Robocopy fallo copiando '$Source' a '$Destination' con codigo $robocopy_exit."
+    }
 }
 
 function Get-DllImports([string] $BinaryPath) {
@@ -84,10 +94,14 @@ function Append-FileToStream([System.IO.Stream] $OutputStream, [string] $Path) {
 $repo_root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $build_path = Resolve-RepoPath $BuildDir
 $output_root_path = Resolve-RepoPath $OutputRoot
+$release_path = Resolve-RepoPath $ReleaseDir
 $portable_dir = Join-Path $output_root_path "JW_QET_Portable"
-$dist_dir = Join-Path $output_root_path "dist"
 $exe_path = Join-Path $build_path "qelectrotech.exe"
 $launcher_source = Join-Path $repo_root "packaging\windows\run-qelectrotech-portable.bat"
+
+Assert-InsidePath $output_root_path $repo_root
+Assert-InsidePath $release_path $repo_root
+Assert-InsidePath $portable_dir $output_root_path
 
 if (-not (Test-Path -LiteralPath $exe_path)) {
     throw "No existe qelectrotech.exe. Compile primero el proyecto en: $build_path"
@@ -105,7 +119,7 @@ if (-not $SevenZip) {
     )
 }
 if (-not $SevenZip) {
-    throw "No se encontro 7-Zip. Instale 7-Zip o pase -SevenZip <ruta a 7z.exe>."
+    throw "No se encontro 7-Zip. Ejecute setup-jw-qet-dev-environment.bat o pase -SevenZip <ruta a 7z.exe>."
 }
 
 if (-not $SfxModule) {
@@ -115,7 +129,7 @@ if (-not $SfxModule) {
     )
 }
 if ((-not $NoSfx) -and (-not $SfxModule)) {
-    throw "No se encontro 7z.sfx. Instale 7-Zip completo o use -NoSfx para generar solo .7z."
+    throw "No se encontro 7z.sfx. Instale 7-Zip para Windows o use -NoSfx para generar solo .7z."
 }
 
 $windeployqt = Find-FirstExistingPath @(
@@ -135,17 +149,12 @@ if (-not $objdump) {
 }
 
 New-Item -ItemType Directory -Force -Path $output_root_path | Out-Null
-Assert-InsidePath $portable_dir $output_root_path
-Assert-InsidePath $dist_dir $output_root_path
+New-Item -ItemType Directory -Force -Path $release_path | Out-Null
 
 if (Test-Path -LiteralPath $portable_dir) {
     Remove-Item -LiteralPath $portable_dir -Recurse -Force
 }
-if (Test-Path -LiteralPath $dist_dir) {
-    Remove-Item -LiteralPath $dist_dir -Recurse -Force
-}
 New-Item -ItemType Directory -Force -Path $portable_dir | Out-Null
-New-Item -ItemType Directory -Force -Path $dist_dir | Out-Null
 
 Copy-Item -LiteralPath $exe_path -Destination (Join-Path $portable_dir "qelectrotech.exe") -Force
 Copy-Item -LiteralPath $launcher_source -Destination (Join-Path $portable_dir "run-qelectrotech.bat") -Force
@@ -235,8 +244,16 @@ if ($missing.Count -gt 0) {
     Write-Warning ("DLL no resueltas: " + (($missing | Sort-Object) -join ", "))
 }
 
-$archive_path = Join-Path $dist_dir "JW_QET_Portable.7z"
-$sfx_path = Join-Path $dist_dir "JW_QET_Portable_Setup.exe"
+$archive_path = Join-Path $release_path "JW-QET-Portable.7z"
+$sfx_path = Join-Path $release_path "JW-QET-Portable.exe"
+$hash_path = Join-Path $release_path "SHA256SUMS.txt"
+$config_path = Join-Path $output_root_path "sfx-config.txt"
+
+foreach ($old_file in @($archive_path, $sfx_path, $hash_path, $config_path)) {
+    if (Test-Path -LiteralPath $old_file) {
+        Remove-Item -LiteralPath $old_file -Force
+    }
+}
 
 Push-Location $portable_dir
 try {
@@ -250,7 +267,6 @@ finally {
 }
 
 if (-not $NoSfx) {
-    $config_path = Join-Path $dist_dir "sfx-config.txt"
     $config = @"
 ;!@Install@!UTF-8!
 Title="JW QET Portable"
@@ -272,13 +288,35 @@ OverwriteMode="2"
     finally {
         $output_stream.Dispose()
     }
+
+    Remove-Item -LiteralPath $config_path -Force
 }
 
-Write-Host "Portable generado en: $portable_dir"
+$hash_lines = [System.Collections.Generic.List[string]]::new()
+$archive_hash = (Get-FileHash -LiteralPath $archive_path -Algorithm SHA256).Hash.ToLowerInvariant()
+$hash_lines.Add("$archive_hash  $([System.IO.Path]::GetFileName($archive_path))") | Out-Null
+
+if (-not $NoSfx) {
+    $sfx_hash = (Get-FileHash -LiteralPath $sfx_path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hash_lines.Add("$sfx_hash  $([System.IO.Path]::GetFileName($sfx_path))") | Out-Null
+}
+
+[System.IO.File]::WriteAllLines($hash_path, $hash_lines, [System.Text.UTF8Encoding]::new($false))
+
 Write-Host "Archivo 7z generado en: $archive_path"
 if (-not $NoSfx) {
     Write-Host "Ejecutable generado en: $sfx_path"
 }
+Write-Host "Hashes SHA256 en: $hash_path"
+
 if ($copied.Count -gt 0) {
     Write-Host ("DLL copiadas por resolucion recursiva: " + (($copied | Sort-Object -Unique) -join ", "))
+}
+
+if ($KeepStage) {
+    Write-Host "Staging conservado en: $portable_dir"
+}
+else {
+    Remove-Item -LiteralPath $portable_dir -Recurse -Force
+    Write-Host "Staging temporal eliminado: $portable_dir"
 }

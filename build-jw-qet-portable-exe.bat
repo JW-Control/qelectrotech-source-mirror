@@ -1,5 +1,6 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\windows\build-portable-package.ps1" %*
+rem Compatibility wrapper. Prefer package-jw-qet.bat for new workflows.
+call "%~dp0package-jw-qet.bat" %*
 exit /b %ERRORLEVEL%

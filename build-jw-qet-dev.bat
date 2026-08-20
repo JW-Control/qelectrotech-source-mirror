@@ -44,6 +44,17 @@ if not exist "%REPO%\elements" (
     exit /b 1
 )
 
+rem CMakeCache.txt contiene rutas absolutas. Si el repo fue movido o
+rem clonado en otra ubicacion, el cache anterior no puede reutilizarse.
+if exist "%BUILD_DIR%\CMakeCache.txt" (
+    findstr /L /I /X /C:"CMAKE_HOME_DIRECTORY:INTERNAL=%REPO:\=/%" "%BUILD_DIR%\CMakeCache.txt" >nul 2>&1
+    if errorlevel 1 (
+        echo [JW QET] Cache CMake de desarrollo pertenece a otra ruta.
+        echo [JW QET] Regenerando build de desarrollo automaticamente...
+        rmdir /S /Q "%BUILD_DIR%"
+    )
+)
+
 echo ============================================================
 echo   JW QET - Build de desarrollo
 echo ============================================================

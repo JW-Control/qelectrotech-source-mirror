@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 
 set "REPO=%~dp0"
-set "PACKAGER=%REPO%packaging\windows\build-portable-package.ps1"
+set "PACKAGER=%REPO%packaging\windows\invoke-portable-package.ps1"
 
 if not exist "%PACKAGER%" (
     echo [ERROR] No se encontro:

@@ -72,7 +72,7 @@ if errorlevel 1 (
 
 echo.
 echo [4/5] Instalando dependencias UCRT64...
-"%BASH%" -lc "pacman -S --needed --noconfirm git mingw-w64-ucrt-x86_64-ccache mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-binutils mingw-w64-ucrt-x86_64-qt5-base mingw-w64-ucrt-x86_64-qt5-svg mingw-w64-ucrt-x86_64-qt5-tools mingw-w64-ucrt-x86_64-qt5-translations mingw-w64-ucrt-x86_64-qt5-pdf mingw-w64-ucrt-x86_64-sqlite3 mingw-w64-ucrt-x86_64-pkg-config mingw-w64-ucrt-x86_64-kwidgetsaddons mingw-w64-ucrt-x86_64-kcoreaddons mingw-w64-ucrt-x86_64-extra-cmake-modules mingw-w64-ucrt-x86_64-nsis mingw-w64-ucrt-x86_64-angleproject mingw-w64-ucrt-x86_64-7zip"
+"%BASH%" -lc "pacman -S --needed --noconfirm git mingw-w64-ucrt-x86_64-ccache mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-binutils mingw-w64-ucrt-x86_64-qt5-base mingw-w64-ucrt-x86_64-qt5-svg mingw-w64-ucrt-x86_64-qt5-tools mingw-w64-ucrt-x86_64-qt5-translations mingw-w64-ucrt-x86_64-qt5-pdf mingw-w64-ucrt-x86_64-sqlite3 mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-kwidgetsaddons mingw-w64-ucrt-x86_64-kcoreaddons mingw-w64-ucrt-x86_64-extra-cmake-modules mingw-w64-ucrt-x86_64-nsis mingw-w64-ucrt-x86_64-angleproject mingw-w64-ucrt-x86_64-7zip"
 
 if errorlevel 1 (
     echo [ERROR] No se pudieron instalar las dependencias UCRT64.

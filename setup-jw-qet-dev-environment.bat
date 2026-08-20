@@ -19,6 +19,7 @@ echo   - GCC, CMake, Ninja y binutils
 echo   - Qt5 y modulos usados por QElectroTech
 echo   - KDE Frameworks requeridos
 echo   - 7-Zip para empaquetado
+echo   - JW-QET-Launcher.exe para uso normal sin consola
 echo.
 
 net session >nul 2>&1
@@ -29,7 +30,7 @@ if not "%ERRORLEVEL%"=="0" (
 )
 
 if not exist "%BASH%" (
-    echo [1/5] Descargando MSYS2...
+    echo [1/6] Descargando MSYS2...
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
       "$ErrorActionPreference='Stop'; Invoke-WebRequest -Uri '%MSYS_URL%' -OutFile '%INSTALLER%'"
     if errorlevel 1 (
@@ -38,7 +39,7 @@ if not exist "%BASH%" (
         exit /b 1
     )
 
-    echo [2/5] Instalando MSYS2 en %MSYS_ROOT%...
+    echo [2/6] Instalando MSYS2 en %MSYS_ROOT%...
     "%INSTALLER%" in --confirm-command --accept-messages --root C:/msys64
     if errorlevel 1 (
         echo [ERROR] Fallo la instalacion de MSYS2.
@@ -46,8 +47,8 @@ if not exist "%BASH%" (
         exit /b 1
     )
 ) else (
-    echo [1/5] MSYS2 ya esta instalado.
-    echo [2/5] No es necesario reinstalarlo.
+    echo [1/6] MSYS2 ya esta instalado.
+    echo [2/6] No es necesario reinstalarlo.
 )
 
 if not exist "%BASH%" (
@@ -57,7 +58,7 @@ if not exist "%BASH%" (
     exit /b 1
 )
 
-echo [3/5] Actualizando MSYS2...
+echo [3/6] Actualizando MSYS2...
 "%BASH%" -lc "pacman -Syu --noconfirm"
 if errorlevel 1 (
     echo [WARN] Primera pasada de actualizacion devolvio error.
@@ -71,7 +72,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/5] Instalando dependencias UCRT64...
+echo [4/6] Instalando dependencias UCRT64...
 "%BASH%" -lc "pacman -S --needed --noconfirm git mingw-w64-ucrt-x86_64-ccache mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-binutils mingw-w64-ucrt-x86_64-qt5-base mingw-w64-ucrt-x86_64-qt5-svg mingw-w64-ucrt-x86_64-qt5-tools mingw-w64-ucrt-x86_64-qt5-translations mingw-w64-ucrt-x86_64-qt5-pdf mingw-w64-ucrt-x86_64-sqlite3 mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-kwidgetsaddons mingw-w64-ucrt-x86_64-kcoreaddons mingw-w64-ucrt-x86_64-extra-cmake-modules mingw-w64-ucrt-x86_64-nsis mingw-w64-ucrt-x86_64-angleproject mingw-w64-ucrt-x86_64-7zip"
 
 if errorlevel 1 (
@@ -99,7 +100,7 @@ if errorlevel 1 (
 
 :after_submodules
 echo.
-echo [5/5] Verificando 7-Zip para Windows...
+echo [5/6] Verificando 7-Zip para Windows...
 if exist "C:\Program Files\7-Zip\7z.exe" if exist "C:\Program Files\7-Zip\7z.sfx" goto sevenzip_ok
 if exist "C:\Program Files (x86)\7-Zip\7z.exe" if exist "C:\Program Files (x86)\7-Zip\7z.sfx" goto sevenzip_ok
 
@@ -129,6 +130,7 @@ set "FAILED=0"
 
 if exist "%MSYS_ROOT%\ucrt64\bin\cmake.exe" (echo [OK] cmake.exe) else (echo [FALTA] cmake.exe & set "FAILED=1")
 if exist "%MSYS_ROOT%\ucrt64\bin\ninja.exe" (echo [OK] ninja.exe) else (echo [FALTA] ninja.exe & set "FAILED=1")
+if exist "%MSYS_ROOT%\ucrt64\bin\g++.exe" (echo [OK] g++.exe) else (echo [FALTA] g++.exe & set "FAILED=1")
 if exist "%MSYS_ROOT%\ucrt64\bin\windeployqt-qt5.exe" (echo [OK] windeployqt-qt5.exe) else (echo [FALTA] windeployqt-qt5.exe & set "FAILED=1")
 if exist "%MSYS_ROOT%\ucrt64\bin\objdump.exe" (echo [OK] objdump.exe) else (echo [FALTA] objdump.exe & set "FAILED=1")
 if exist "%MSYS_ROOT%\ucrt64\bin\Qt5Svg.dll" (echo [OK] Qt5Svg.dll) else (echo [FALTA] Qt5Svg.dll & set "FAILED=1")
@@ -140,6 +142,17 @@ if "%FAILED%"=="1" (
     exit /b 1
 )
 
+echo.
+echo [6/6] Generando JW-QET-Launcher.exe...
+call "%REPO%build-jw-qet-launcher.bat"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] El entorno esta instalado, pero no se pudo generar el launcher.
+    echo        Puedes reintentar con: build-jw-qet-launcher.bat
+    pause
+    exit /b 1
+)
+
 if exist "%INSTALLER%" del /Q "%INSTALLER%" >nul 2>&1
 
 echo.
@@ -147,8 +160,11 @@ echo ============================================================
 echo   SETUP COMPLETADO
 echo ============================================================
 echo.
-echo Para desarrollar y ejecutar:
-echo   run-jw-qet-dev.bat
+echo Para uso normal, sin consola:
+echo   JW-QET-Launcher.exe
+echo.
+echo Para depurar y ver la consola:
+echo   run-jw-qet-dev.bat --wait
 echo.
 echo Para generar release:
 echo   build-jw-qet.bat

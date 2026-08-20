@@ -83,7 +83,7 @@ if errorlevel 1 (
 if exist "%REPO%.git" (
     echo.
     echo [INFO] Sincronizando submodulos del repositorio...
-    "%MSYS_ROOT%\usr\bin\git.exe" -C "%REPO%" submodule update --init --recursive
+    "%MSYS_ROOT%\usr\bin\git.exe" -C "%REPO%." submodule update --init --recursive
     if errorlevel 1 (
         echo [WARN] No se pudieron sincronizar los submodulos automaticamente.
         echo        Ejecuta luego: git submodule update --init --recursive

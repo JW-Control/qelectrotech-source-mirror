@@ -13,6 +13,7 @@
 #include "qetapp.h"
 #include "qetdiagrameditor.h"
 #include "qetproject.h"
+#include "projectview.h"
 
 #include <algorithm>
 #include <QAction>
@@ -33,6 +34,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMap>
+#include <QPointer>
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -277,6 +279,43 @@ namespace JWCollaborationCenter
 				return nullptr;
 			}
 
+			QETProject *contextProject()
+			{
+				if (!m_editor)
+					return nullptr;
+
+				// QMdiArea::activeSubWindow() becomes null while another desktop
+				// window has focus. QETDiagramEditor::currentProject() therefore
+				// temporarily returns null even though the project is still open.
+				// Keep the last real project context instead of making the center
+				// flicker to "No hay un proyecto abierto" every 2.5 seconds.
+				if (QETProject *active = m_editor->currentProject())
+				{
+					m_last_project = active;
+					return active;
+				}
+
+				if (m_last_project)
+				{
+					for (ProjectView *view : m_editor->openedProjects())
+					{
+						if (view && view->project() == m_last_project.data())
+							return m_last_project.data();
+					}
+					m_last_project.clear();
+				}
+
+				// Startup fallback: if there is only one project open, there is no
+				// ambiguity even when the MDI area has not reported it active yet.
+				const QList<ProjectView *> opened = m_editor->openedProjects();
+				if (opened.size() == 1 && opened.first() && opened.first()->project())
+				{
+					m_last_project = opened.first()->project();
+					return m_last_project.data();
+				}
+				return nullptr;
+			}
+
 			void triggerSubmit()
 			{
 				// Trigger the menu action rather than calling QETDiagramEditor's
@@ -289,18 +328,23 @@ namespace JWCollaborationCenter
 
 			void refresh()
 			{
+				QETProject *project = contextProject();
+				if (!project)
+				{
+					m_folios->clear();
+					m_team->clear();
+					m_deliveries->clear();
+					m_submit->setEnabled(false);
+					m_session->setText(QObject::tr("No hay un proyecto abierto."));
+					return;
+				}
+
 				m_folios->clear();
 				m_team->clear();
 				m_deliveries->clear();
 				m_submit->setEnabled(false);
 
-				if (!m_editor || !m_editor->currentProject())
-				{
-					m_session->setText(QObject::tr("No hay un proyecto abierto."));
-					return;
-				}
-
-				const QString qet_path = m_editor->currentProject()->filePath();
+				const QString qet_path = project->filePath();
 				const QString workspace = workspaceFromPath(qet_path);
 				if (workspace.isEmpty())
 				{
@@ -399,6 +443,7 @@ namespace JWCollaborationCenter
 
 		private:
 			QETDiagramEditor *m_editor = nullptr;
+			QPointer<QETProject> m_last_project;
 			QLabel *m_session = nullptr;
 			QListWidget *m_folios = nullptr;
 			QListWidget *m_team = nullptr;

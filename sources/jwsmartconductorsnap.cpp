@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QGraphicsView>
+#include <QKeyEvent>
 #include <QLineF>
 #include <QMouseEvent>
 #include <QPointer>
@@ -37,6 +38,7 @@ struct SnapCandidate
     QPointer<Conductor> conductor;
     QPointF scenePoint;
     int segmentIndex = -1;
+    bool segmentHorizontal = false;
     qreal distance = std::numeric_limits<qreal>::max();
 
     bool isValid() const
@@ -67,6 +69,15 @@ QPoint mousePosition(const QMouseEvent *event)
 #endif
 }
 
+QPoint globalMousePosition(const QMouseEvent *event)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return event->globalPosition().toPoint();
+#else
+    return event->globalPos();
+#endif
+}
+
 QPoint viewportPosition(QObject *watched,
                         QGraphicsView *view,
                         const QMouseEvent *event)
@@ -81,6 +92,27 @@ QPoint viewportPosition(QObject *watched,
         return local;
     }
     return view->viewport()->mapFrom(source_widget, local);
+}
+
+QPointF scenePositionForEvent(QObject *watched,
+                              QGraphicsView *view,
+                              const QMouseEvent *event)
+{
+    if (!view || !view->viewport()) {
+        return QPointF();
+    }
+
+    QGraphicsView *event_view = graphicsViewForObject(watched);
+    if (event_view == view) {
+        return view->mapToScene(viewportPosition(watched, view, event));
+    }
+
+    // A release can happen over another widget (or after the pointer leaves
+    // the viewport). Map its global position back into the original view so
+    // the drag can always be terminated cleanly.
+    const QPoint viewport_pos =
+            view->viewport()->mapFromGlobal(globalMousePosition(event));
+    return view->mapToScene(viewport_pos);
 }
 
 qreal sceneSnapRadius(QGraphicsView *view)
@@ -110,11 +142,54 @@ Terminal *terminalAt(Diagram *diagram, const QPointF &scene_pos)
     return nullptr;
 }
 
-bool isBetweenInclusive(qreal value, qreal a, qreal b)
+qreal clampValue(qreal value, qreal a, qreal b)
 {
-    const qreal minimum = qMin(a, b) - kGeometryEpsilon;
-    const qreal maximum = qMax(a, b) + kGeometryEpsilon;
-    return value >= minimum && value <= maximum;
+    const qreal minimum = qMin(a, b);
+    const qreal maximum = qMax(a, b);
+    return qMax(minimum, qMin(maximum, value));
+}
+
+QPointF closestPointOnSegment(const QPointF &mouse_scene_pos,
+                              const QPointF &p1,
+                              const QPointF &p2,
+                              bool horizontal)
+{
+    // Keep the junction on QET's grid along the conductor whenever possible.
+    // The conductor's fixed coordinate is preserved exactly, so the point can
+    // never drift away from the visible wire.
+    const QPointF grid_point = Diagram::snapToGrid(mouse_scene_pos);
+
+    if (horizontal)
+    {
+        return QPointF(
+                clampValue(grid_point.x(), p1.x(), p2.x()),
+                p1.y());
+    }
+
+    return QPointF(
+            p1.x(),
+            clampValue(grid_point.y(), p1.y(), p2.y()));
+}
+
+qreal distanceToOrthogonalSegment(const QPointF &mouse_scene_pos,
+                                  const QPointF &p1,
+                                  const QPointF &p2,
+                                  bool horizontal)
+{
+    QPointF raw_projection;
+    if (horizontal)
+    {
+        raw_projection = QPointF(
+                clampValue(mouse_scene_pos.x(), p1.x(), p2.x()),
+                p1.y());
+    }
+    else
+    {
+        raw_projection = QPointF(
+                p1.x(),
+                clampValue(mouse_scene_pos.y(), p1.y(), p2.y()));
+    }
+    return QLineF(mouse_scene_pos, raw_projection).length();
 }
 
 SnapCandidate findSnapCandidate(Diagram *diagram,
@@ -128,11 +203,6 @@ SnapCandidate findSnapCandidate(Diagram *diagram,
     }
 
     const QPointF source_dock = source->dockConductor();
-    const Qet::Orientation source_orientation = source->orientation();
-    const bool source_is_vertical =
-            source_orientation == Qet::North || source_orientation == Qet::South;
-    const bool source_is_horizontal =
-            source_orientation == Qet::East || source_orientation == Qet::West;
 
     for (Conductor *conductor : diagram->conductors())
     {
@@ -144,49 +214,39 @@ SnapCandidate findSnapCandidate(Diagram *diagram,
         for (int index = 0; index < segments.size(); ++index)
         {
             ConductorSegment *segment = segments.at(index);
-            if (!segment) {
+            if (!segment || segment->isPoint()) {
+                continue;
+            }
+
+            const bool horizontal = segment->isHorizontal();
+            const bool vertical = segment->isVertical();
+            if (!horizontal && !vertical) {
                 continue;
             }
 
             const QPointF p1 = conductor->mapToScene(segment->firstPoint());
             const QPointF p2 = conductor->mapToScene(segment->secondPoint());
-            QPointF snap_point;
-            bool compatible = false;
+            const qreal distance = distanceToOrthogonalSegment(
+                    mouse_scene_pos, p1, p2, horizontal);
 
-            // V1 deliberately favours a perpendicular branch. This preserves
-            // the clean schematic style: a North/South terminal drops onto a
-            // horizontal bus without adding a gratuitous elbow, and likewise
-            // for East/West terminals onto vertical conductors.
-            if (source_is_vertical && segment->isHorizontal()
-                    && isBetweenInclusive(source_dock.x(), p1.x(), p2.x()))
-            {
-                snap_point = QPointF(source_dock.x(), p1.y());
-                compatible = true;
-            }
-            else if (source_is_horizontal && segment->isVertical()
-                     && isBetweenInclusive(source_dock.y(), p1.y(), p2.y()))
-            {
-                snap_point = QPointF(p1.x(), source_dock.y());
-                compatible = true;
-            }
-
-            if (!compatible) {
+            // V1.1 uses distance to the cable itself, not distance to the
+            // source terminal's projection. This makes upward/downward and
+            // diagonal mouse approaches behave symmetrically.
+            if (distance > radius || distance >= best.distance) {
                 continue;
             }
 
-            const qreal branch_length = QLineF(source_dock, snap_point).length();
-            if (branch_length <= kGeometryEpsilon) {
+            const QPointF snap_point = closestPointOnSegment(
+                    mouse_scene_pos, p1, p2, horizontal);
+            if (QLineF(source_dock, snap_point).length() <= kGeometryEpsilon) {
                 continue;
             }
 
-            const qreal distance = QLineF(mouse_scene_pos, snap_point).length();
-            if (distance <= radius && distance < best.distance)
-            {
-                best.conductor = conductor;
-                best.scenePoint = snap_point;
-                best.segmentIndex = index;
-                best.distance = distance;
-            }
+            best.conductor = conductor;
+            best.scenePoint = snap_point;
+            best.segmentIndex = index;
+            best.segmentHorizontal = horizontal;
+            best.distance = distance;
         }
     }
 
@@ -252,6 +312,78 @@ void appendUniquePoint(QList<QPointF> &points, const QPointF &point)
     }
 }
 
+bool terminalAxisIsVertical(Terminal *source)
+{
+    if (!source) {
+        return true;
+    }
+    const Qet::Orientation orientation = source->orientation();
+    return orientation == Qet::North || orientation == Qet::South;
+}
+
+void appendOrthogonalApproach(QList<QPointF> &route,
+                              Terminal *source,
+                              const SnapCandidate &snap)
+{
+    const QPointF start = source->dockConductor();
+    const QPointF end = snap.scenePoint;
+    appendUniquePoint(route, start);
+
+    const qreal dx = end.x() - start.x();
+    const qreal dy = end.y() - start.y();
+    if (qAbs(dx) <= kGeometryEpsilon || qAbs(dy) <= kGeometryEpsilon)
+    {
+        appendUniquePoint(route, end);
+        return;
+    }
+
+    const bool start_vertical = terminalAxisIsVertical(source);
+    // To create a clean T, the last visible branch segment should be
+    // perpendicular to the target conductor.
+    const bool final_vertical = snap.segmentHorizontal;
+
+    if (start_vertical != final_vertical)
+    {
+        // One elbow is enough while preserving both the source axis and a
+        // perpendicular arrival at the target conductor.
+        const QPointF elbow = start_vertical
+                ? QPointF(start.x(), end.y())
+                : QPointF(end.x(), start.y());
+        appendUniquePoint(route, elbow);
+        appendUniquePoint(route, end);
+        return;
+    }
+
+    // Start and final segments need the same axis. Use a centered dog-leg so
+    // diagonal mouse intent becomes an orthogonal, schematic-friendly route.
+    if (start_vertical)
+    {
+        qreal middle_y = start.y() + dy / 2.0;
+        middle_y = Diagram::snapToGrid(QPointF(start.x(), middle_y)).y();
+        if (qAbs(middle_y - start.y()) <= kGeometryEpsilon
+                || qAbs(middle_y - end.y()) <= kGeometryEpsilon)
+        {
+            middle_y = start.y() + dy / 2.0;
+        }
+        appendUniquePoint(route, QPointF(start.x(), middle_y));
+        appendUniquePoint(route, QPointF(end.x(), middle_y));
+    }
+    else
+    {
+        qreal middle_x = start.x() + dx / 2.0;
+        middle_x = Diagram::snapToGrid(QPointF(middle_x, start.y())).x();
+        if (qAbs(middle_x - start.x()) <= kGeometryEpsilon
+                || qAbs(middle_x - end.x()) <= kGeometryEpsilon)
+        {
+            middle_x = start.x() + dx / 2.0;
+        }
+        appendUniquePoint(route, QPointF(middle_x, start.y()));
+        appendUniquePoint(route, QPointF(middle_x, end.y()));
+    }
+
+    appendUniquePoint(route, end);
+}
+
 bool buildBranchRoute(Terminal *source,
                       const SnapCandidate &snap,
                       Terminal **target_terminal,
@@ -288,9 +420,11 @@ bool buildBranchRoute(Terminal *source,
     *target_terminal = use_first ? first_terminal : last_terminal;
 
     route->clear();
-    appendUniquePoint(*route, source->dockConductor());
-    appendUniquePoint(*route, snap.scenePoint);
+    appendOrthogonalApproach(*route, source, snap);
 
+    // From the visual junction onward, reuse the target conductor's exact
+    // route. That overlap is invisible but keeps QET's native connectivity to
+    // a real terminal and therefore preserves potential tracking.
     if (use_first)
     {
         for (int index = snap.segmentIndex; index >= 0; --index) {
@@ -309,7 +443,7 @@ bool buildBranchRoute(Terminal *source,
 
 bool applyRouteProfile(Conductor *conductor, const QList<QPointF> &route)
 {
-    if (!conductor || route.size() < 3) {
+    if (!conductor || route.size() < 2) {
         return false;
     }
 
@@ -336,7 +470,7 @@ bool applyRouteProfile(Conductor *conductor, const QList<QPointF> &route)
         profile.segments << new ConductorSegmentProfile(length, horizontal);
     }
 
-    if (profile.segments.size() < 2) {
+    if (profile.segments.isEmpty()) {
         profile.setNull();
         return false;
     }
@@ -380,8 +514,8 @@ bool addSmartBranch(Diagram *diagram,
     }
 
     // Keep the native QET potential-property behaviour. Because the branch
-    // shares a real endpoint with the target conductor, relatedPotentialConductors()
-    // immediately sees the existing potential.
+    // shares a real endpoint with the target conductor,
+    // relatedPotentialConductors() immediately sees the existing potential.
     QSet<Conductor *> potential_conductors =
             new_conductor->relatedPotentialConductors();
 
@@ -442,6 +576,29 @@ class JwSmartConductorSnapFilter final : public QObject
                 return false;
             }
 
+            // Cancel paths must work even when the pointer has already left
+            // the QGraphicsView. This prevents QET's dashed conductor preview
+            // from remaining orphaned after Esc, focus loss or an interrupted
+            // drag.
+            if (m_source)
+            {
+                if (event->type() == QEvent::KeyPress)
+                {
+                    auto *key_event = static_cast<QKeyEvent *>(event);
+                    if (key_event->key() == Qt::Key_Escape)
+                    {
+                        cancelDrag();
+                        return false;
+                    }
+                }
+                else if (event->type() == QEvent::ApplicationDeactivate
+                         || event->type() == QEvent::WindowDeactivate)
+                {
+                    cancelDrag();
+                    return false;
+                }
+            }
+
             if (event->type() != QEvent::MouseButtonPress
                     && event->type() != QEvent::MouseMove
                     && event->type() != QEvent::MouseButtonRelease)
@@ -450,41 +607,58 @@ class JwSmartConductorSnapFilter final : public QObject
             }
 
             auto *mouse_event = static_cast<QMouseEvent *>(event);
-            QGraphicsView *view = graphicsViewForObject(watched);
-            if (!view || !view->viewport()) {
-                return false;
-            }
-
-            auto *diagram = qobject_cast<Diagram *>(view->scene());
-            if (!diagram) {
-                return false;
-            }
-
-            const QPoint viewport_pos =
-                    viewportPosition(watched, view, mouse_event);
-            const QPointF scene_pos = view->mapToScene(viewport_pos);
 
             if (event->type() == QEvent::MouseButtonPress)
             {
-                if (mouse_event->button() != Qt::LeftButton || diagram->isReadOnly()) {
+                if (m_source && mouse_event->button() != Qt::LeftButton)
+                {
+                    cancelDrag();
                     return false;
                 }
 
-                resetDrag();
+                if (mouse_event->button() != Qt::LeftButton) {
+                    return false;
+                }
+
+                QGraphicsView *view = graphicsViewForObject(watched);
+                if (!view || !view->viewport()) {
+                    return false;
+                }
+
+                auto *diagram = qobject_cast<Diagram *>(view->scene());
+                if (!diagram || diagram->isReadOnly()) {
+                    return false;
+                }
+
+                const QPointF scene_pos = scenePositionForEvent(
+                        watched, view, mouse_event);
+
+                cancelDrag();
                 m_source = terminalAt(diagram, scene_pos);
                 m_diagram = m_source ? diagram : nullptr;
                 m_view = m_source ? view : nullptr;
                 return false;
             }
 
-            if (!m_source || !m_diagram || diagram != m_diagram) {
+            if (!m_source || !m_diagram || !m_view) {
                 return false;
             }
 
+            Diagram *diagram = m_diagram.data();
+            QGraphicsView *view = m_view.data();
+            if (!diagram || !view) {
+                resetDrag();
+                return false;
+            }
+
+            const QPointF scene_pos = scenePositionForEvent(
+                    watched, view, mouse_event);
+
             if (event->type() == QEvent::MouseMove)
             {
-                if (!(mouse_event->buttons() & Qt::LeftButton)) {
-                    resetDrag();
+                if (!(mouse_event->buttons() & Qt::LeftButton))
+                {
+                    cancelDrag();
                     return false;
                 }
 
@@ -512,14 +686,18 @@ class JwSmartConductorSnapFilter final : public QObject
                 setSnapHighlight(candidate);
 
                 // Application event filters run before QGraphicsView dispatches
-                // the move to Terminal. Let QET process the event normally so
-                // its mouse-grabber state stays untouched, then snap the dashed
-                // preview endpoint at the end of this event-loop turn.
+                // the move to Terminal. Let QET process its native move, then
+                // re-apply the snapped preview endpoint at the end of this
+                // event-loop turn. Every queued callback reads the latest snap,
+                // so stale mouse moves cannot resurrect an old target.
                 const QPointer<Diagram> diagram_guard = diagram;
-                const QPointF snap_point = candidate.scenePoint;
-                QTimer::singleShot(0, [diagram_guard, snap_point]() {
-                    if (diagram_guard) {
-                        diagram_guard->setConductorStop(snap_point);
+                QTimer::singleShot(0, this, [this, diagram_guard]() {
+                    if (diagram_guard
+                            && m_diagram == diagram_guard
+                            && m_active_snap.isValid())
+                    {
+                        diagram_guard->setConductorStop(
+                                m_active_snap.scenePoint);
                     }
                 });
                 return false;
@@ -530,6 +708,12 @@ class JwSmartConductorSnapFilter final : public QObject
                 if (mouse_event->button() != Qt::LeftButton) {
                     return false;
                 }
+
+                // Always stop QET's native dashed preview ourselves. Native
+                // Terminal::mouseReleaseEvent will also do it when it receives
+                // the event; the duplicate call is harmless and closes the
+                // cases where release occurs outside the terminal/view.
+                diagram->setConductor(false);
 
                 // A terminal under the cursor remains a native QET connection.
                 Terminal *release_terminal = terminalAt(diagram, scene_pos);
@@ -551,10 +735,9 @@ class JwSmartConductorSnapFilter final : public QObject
                     return false;
                 }
 
-                // Do not swallow the release: QGraphicsScene must receive it
-                // to finish its native mouse grab cleanly. Native Terminal will
-                // stop the preview and ignore the conductor body; immediately
-                // afterwards we create the smart branch in a queued callback.
+                // Do not swallow the release: QGraphicsScene may still need it
+                // to finish its mouse grab. Create the branch after native event
+                // processing has completed.
                 const QPointer<Diagram> diagram_guard = diagram;
                 const QPointer<Terminal> source_guard = m_source;
                 const SnapCandidate queued_candidate = candidate;
@@ -579,16 +762,22 @@ class JwSmartConductorSnapFilter final : public QObject
             }
             m_highlighted_conductor = nullptr;
             m_previous_highlight = Conductor::None;
+            m_active_snap = SnapCandidate();
         }
 
         void setSnapHighlight(const SnapCandidate &candidate)
         {
+            m_active_snap = candidate;
             if (m_highlighted_conductor == candidate.conductor) {
                 return;
             }
 
-            clearSnapHighlight();
+            if (m_highlighted_conductor) {
+                m_highlighted_conductor->setHighlighted(m_previous_highlight);
+            }
+
             m_highlighted_conductor = candidate.conductor;
+            m_previous_highlight = Conductor::None;
             if (m_highlighted_conductor)
             {
                 m_previous_highlight = m_highlighted_conductor->highlight();
@@ -604,12 +793,21 @@ class JwSmartConductorSnapFilter final : public QObject
             m_view = nullptr;
         }
 
+        void cancelDrag()
+        {
+            if (m_diagram) {
+                m_diagram->setConductor(false);
+            }
+            resetDrag();
+        }
+
     private:
         QPointer<Terminal> m_source;
         QPointer<Diagram> m_diagram;
         QPointer<QGraphicsView> m_view;
         QPointer<Conductor> m_highlighted_conductor;
         Conductor::Highlight m_previous_highlight = Conductor::None;
+        SnapCandidate m_active_snap;
 };
 
 JwSmartConductorSnapFilter *s_smart_conductor_snap_filter = nullptr;

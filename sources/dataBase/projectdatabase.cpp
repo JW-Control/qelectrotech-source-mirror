@@ -150,7 +150,24 @@ void projectDataBase::addElement(Element *element)
 */
 void projectDataBase::removeElement(Element *element)
 {
-	m_remove_element_query.bindValue(":uuid", element->uuid().toString());
+	if (!element) {
+		return;
+	}
+
+	const QString uuid = element->uuid().toString();
+
+	// element_info has its own primary key and the in-memory SQLite database
+	// does not enable foreign-key cascading. Leaving this row behind means an
+	// Undo that re-adds the same element UUID succeeds in the element table but
+	// then hits UNIQUE constraint failed: element_info.element_uuid.
+	QSqlQuery remove_info(m_data_base);
+	remove_info.prepare("DELETE FROM element_info WHERE element_uuid=:uuid");
+	remove_info.bindValue(":uuid", uuid);
+	if (!remove_info.exec()) {
+		qDebug() << "projectDataBase::removeElement remove info error : " << remove_info.lastError();
+	}
+
+	m_remove_element_query.bindValue(":uuid", uuid);
 	if(!m_remove_element_query.exec()) {
 		qDebug() << "projectDataBase::removeElement remove error : " << m_remove_element_query.lastError();
 	} else {
@@ -584,7 +601,10 @@ void projectDataBase::prepareQuery()
 	for (auto key : QETInformation::elementInfoKeys()) {
 		bind_values << key.prepend(":");
 	}
-	QString insert_element_info("INSERT INTO element_info (element_uuid," +
+	// element_info is a cache keyed by the persistent element UUID. Re-adding
+	// an element through Undo/Redo must refresh that cache row instead of
+	// treating the same UUID as a second logical element.
+	QString insert_element_info("INSERT OR REPLACE INTO element_info (element_uuid," +
 				   QETInformation::elementInfoKeys().join(", ") +
 				   ") VALUES (:uuid," +
 				   bind_values.join(", ") +
@@ -611,7 +631,7 @@ void projectDataBase::prepareQuery()
 /**
 	@brief projectDataBase::elementInfoToString
 	@param elmt
-	@return the element information in hash as key for the info name and value as the information value.
+	@return the element information in hash as key for the info name and value for the information value.
 */
 QHash<QString, QString> projectDataBase::elementInfoToString(Element *elmt)
 {
@@ -681,14 +701,14 @@ void projectDataBase::exportDb(projectDataBase *db,
 			       const QString &dir)
 {
 	auto caption_ = caption;
-	if (caption_.isEmpty()) {
+	if(caption_.isEmpty()) {
 		caption_ = tr("Exporter la base de données interne du projet");
 	}
 
 	auto dir_ = dir;
 	if(dir_.isEmpty()) {
 		dir_ = db->project()->filePath();
-		if (dir_.isEmpty()) {
+		if(dir_.isEmpty()) {
 			dir_ = QETApp::documentDir() % "/" % tr("sans_nom") % ".sqlite";
 		} else {
 			dir_.remove(".qet");
@@ -697,17 +717,17 @@ void projectDataBase::exportDb(projectDataBase *db,
 	}
 
 	auto path_ = QFileDialog::getSaveFileName(parent, caption_, dir_, "*.sqlite");
-	if (path_.isNull()) {
+	if(path_.isNull()) {
 		return;
 	}
 
 	QString connection_name("export_project_db_" % db->project()->uuid().toString());
 
-	if (true) //Enter in a scope only to nicely use QSqlDatabase::removeDatabase just after the end of the scope
+	if(true) //Enter in a scope only to nicely use QSqlDatabase::removeDatabase just after the end of the scope
 	{
 		auto file_db = QSqlDatabase::addDatabase("QSQLITE", connection_name);
 		file_db.setDatabaseName(path_);
-		if (!file_db.open()) {
+		if(!file_db.open()) {
 			return;
 		}
 
@@ -715,7 +735,7 @@ void projectDataBase::exportDb(projectDataBase *db,
 		auto file_db_handle = sqliteHandle(&file_db);
 
 		auto sqlite_backup = sqlite3_backup_init(file_db_handle, "main", memory_db_handle, "main");
-		if (sqlite_backup)
+		if(sqlite_backup)
 		{
 			sqlite3_backup_step(sqlite_backup, -1);
 			sqlite3_backup_finish(sqlite_backup);

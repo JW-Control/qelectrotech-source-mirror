@@ -151,8 +151,19 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${QET_DIR}/sources/jwcollabpublisher.cpp
     ${JW_COLLAB_SELECTION_SOURCE}
     ${QET_DIR}/sources/jwcollabcontinuation.cpp
-    ${QET_DIR}/sources/jwsmartconductorsnap.cpp
 )
+
+# Smart conductor snapping is experimental. Keep it opt-in while we isolate a
+# Windows/Qt5 popup-menu regression where dismissing a context menu can close
+# the application. This leaves normal QET editing fully usable and lets us
+# re-enable the extension explicitly for targeted tests without deleting it.
+option(JW_QET_ENABLE_SMART_SNAP "Enable experimental JW smart conductor snapping" OFF)
+if(JW_QET_ENABLE_SMART_SNAP)
+    target_sources(${PROJECT_NAME} PRIVATE
+        ${QET_DIR}/sources/jwsmartconductorsnap.cpp
+    )
+endif()
+message(STATUS "JW smart conductor snap: ${JW_QET_ENABLE_SMART_SNAP}")
 
 # The default build only compiles the tracked .ts files to .qm (lrelease).
 # Refreshing the .ts from the sources (lupdate) is a developer action behind
@@ -345,7 +356,7 @@ if (NOT MINGW)
     install(DIRECTORY titleblocks DESTINATION share/qelectrotech)
     install(FILES LICENSE ELEMENTS.LICENSE CREDIT README ChangeLog DESTINATION share/doc/qelectrotech)
     if(UNIX AND NOT APPLE)
-        install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION share/applications)
+        install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION ${QET_DESKTOP_PATH})
         install(FILES misc/qelectrotech.xml    DESTINATION ${QET_MIME_PACKAGE_PATH})
         install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_APPDATA_PATH})
     endif()

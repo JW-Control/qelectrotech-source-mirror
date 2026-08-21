@@ -10,13 +10,11 @@
 #ifndef JW_COMPANY_COLLECTION_H
 #define JW_COMPANY_COLLECTION_H
 
-#include "ElementsCollection/elementscollectionmodel.h"
-#include "ElementsCollection/fileelementcollectionitem.h"
-#include "elementspanel.h"
 #include "elementspanelwidget.h"
-#include "genericpanel.h"
 #include "qetapp.h"
 
+#include <QAbstractItemModel>
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QDir>
 #include <QDirIterator>
@@ -25,7 +23,6 @@
 #include <QFileSystemWatcher>
 #include <QSettings>
 #include <QTimer>
-#include <QTreeWidgetItem>
 
 namespace JWCompanyCollection
 {
@@ -57,14 +54,10 @@ namespace JWCompanyCollection
 
 	inline QString detectCanonicalPath(const QString &configured_path = QString())
 	{
-		// Respect an explicit, currently valid path. This lets a user keep a
-		// deliberately different company collection without JW-QET overriding it.
 		const QString configured = existingDirectory(configured_path);
 		if (!configured.isEmpty())
 			return configured;
 
-		// If the configured path came from another PC/drive letter, preserve the
-		// portion before 01_JW_CONTROL when possible and try every mounted drive.
 		QString configured_prefix;
 		const QString normalized = QDir::fromNativeSeparators(configured_path);
 		const QString marker = QStringLiteral("/01_JW_CONTROL/");
@@ -77,16 +70,17 @@ namespace JWCompanyCollection
 				configured_prefix = configured_prefix.mid(slash + 1);
 		}
 
-		const QStringList common_drive_prefixes {
-			configured_prefix,
-			QStringLiteral("Mi unidad"),
-			QStringLiteral("My Drive"),
-			QString()
-		};
+		QStringList prefixes;
+		if (!configured_prefix.isEmpty())
+			prefixes << configured_prefix;
+		prefixes << QStringLiteral("Mi unidad")
+				 << QStringLiteral("My Drive")
+				 << QString();
+		prefixes.removeDuplicates();
 
 		for (const QFileInfo &drive : QDir::drives())
 		{
-			for (const QString &prefix : common_drive_prefixes)
+			for (const QString &prefix : prefixes)
 			{
 				const QString candidate = candidateFromDriveRoot(drive.absoluteFilePath(), prefix);
 				if (!candidate.isEmpty())
@@ -125,9 +119,9 @@ namespace JWCompanyCollection
 				reloadPanels();
 			});
 
-			m_decorate_timer.setInterval(1200);
+			m_decorate_timer.setInterval(1000);
 			connect(&m_decorate_timer, &QTimer::timeout, this, [this]() {
-				decorateAll();
+				decorateAllViews();
 			});
 			m_decorate_timer.start();
 
@@ -139,7 +133,7 @@ namespace JWCompanyCollection
 			qApp->installEventFilter(this);
 			QTimer::singleShot(0, this, [this]() {
 				rebuildWatchList();
-				decorateAll();
+				decorateAllViews();
 			});
 		}
 
@@ -148,7 +142,7 @@ namespace JWCompanyCollection
 			{
 				Q_UNUSED(watched)
 				if (event->type() == QEvent::Show)
-					QTimer::singleShot(250, this, [this]() { decorateAll(); });
+					QTimer::singleShot(200, this, [this]() { decorateAllViews(); });
 				return QObject::eventFilter(watched, event);
 			}
 
@@ -156,6 +150,55 @@ namespace JWCompanyCollection
 			QString companyPath() const
 			{
 				return QETApp::companyElementsDirN();
+			}
+
+			QString displayLabel() const
+			{
+				return QFileInfo(companyPath()).isDir()
+					? QObject::tr("Colección JW Control · Disponible")
+					: QObject::tr("Colección JW Control · No disponible");
+			}
+
+			QString displayToolTip() const
+			{
+				const QString path = QDir::toNativeSeparators(companyPath());
+				return QFileInfo(companyPath()).isDir()
+					? QObject::tr("Biblioteca compartida JW Control disponible en:\n%1").arg(path)
+					: QObject::tr("La biblioteca compartida JW Control no está disponible en esta PC.\n%1").arg(path);
+			}
+
+			bool looksLikeCompanyRoot(const QString &text) const
+			{
+				const QString normalized = text.trimmed();
+				return normalized.compare(QStringLiteral("Collection Company"), Qt::CaseInsensitive) == 0
+					|| normalized.compare(QStringLiteral("Company collection"), Qt::CaseInsensitive) == 0
+					|| normalized.compare(QStringLiteral("Colección Company"), Qt::CaseInsensitive) == 0
+					|| normalized.startsWith(QStringLiteral("Colección JW Control"), Qt::CaseInsensitive);
+			}
+
+			void decorateModel(QAbstractItemModel *model)
+			{
+				if (!model)
+					return;
+				const QString label = displayLabel();
+				const QString tooltip = displayToolTip();
+				for (int row = 0; row < model->rowCount(); ++row)
+				{
+					const QModelIndex index = model->index(row, 0);
+					if (!index.isValid())
+						continue;
+					const QString text = model->data(index, Qt::DisplayRole).toString();
+					if (!looksLikeCompanyRoot(text))
+						continue;
+					model->setData(index, label, Qt::DisplayRole);
+					model->setData(index, tooltip, Qt::ToolTipRole);
+				}
+			}
+
+			void decorateAllViews()
+			{
+				for (QAbstractItemView *view : qApp->findChildren<QAbstractItemView *>())
+					decorateModel(view->model());
 			}
 
 			void scheduleReload()
@@ -205,86 +248,8 @@ namespace JWCompanyCollection
 			{
 				for (ElementsPanelWidget *widget : qApp->findChildren<ElementsPanelWidget *>())
 					widget->reloadAndFilter();
-				QTimer::singleShot(450, this, [this]() { decorateAll(); });
-				QTimer::singleShot(1200, this, [this]() { decorateAll(); });
-			}
-
-			void decorateTreePanels()
-			{
-				const QString path = companyPath();
-				const bool available = QFileInfo(path).isDir();
-				const QString label = available
-					? QObject::tr("Colección JW Control · Disponible")
-					: QObject::tr("Colección JW Control · No disponible");
-				const QString tooltip = available
-					? QObject::tr("Biblioteca compartida JW Control disponible en:\n%1")
-						.arg(QDir::toNativeSeparators(path))
-					: QObject::tr("La biblioteca compartida JW Control no está disponible en esta PC.\n%1")
-						.arg(QDir::toNativeSeparators(path));
-
-				for (ElementsPanel *panel : qApp->findChildren<ElementsPanel *>())
-				{
-					for (int row = 0; row < panel->topLevelItemCount(); ++row)
-					{
-						QTreeWidgetItem *item = panel->topLevelItem(row);
-						if (!item)
-							continue;
-
-						bool is_company = false;
-						const QVariant value = item->data(0, GenericPanel::Item);
-						if (value.canConvert<ElementsLocation>())
-							is_company = value.value<ElementsLocation>().isCompanyCollection();
-
-						if (!is_company)
-						{
-							const QString text = item->text(0);
-							is_company = text.contains(QStringLiteral("Company collection"), Qt::CaseInsensitive)
-								|| text.contains(QStringLiteral("Collection Company"), Qt::CaseInsensitive)
-								|| text.contains(QStringLiteral("colección company"), Qt::CaseInsensitive);
-						}
-
-						if (is_company)
-						{
-							item->setText(0, label);
-							item->setToolTip(0, tooltip);
-						}
-					}
-				}
-			}
-
-			void decorateModels()
-			{
-				const QString path = companyPath();
-				const bool available = QFileInfo(path).isDir();
-				const QString label = available
-					? QObject::tr("Colección JW Control · Disponible")
-					: QObject::tr("Colección JW Control · No disponible");
-				const QString tooltip = available
-					? QObject::tr("Biblioteca compartida JW Control disponible en:\n%1")
-						.arg(QDir::toNativeSeparators(path))
-					: QObject::tr("La biblioteca compartida JW Control no está disponible en esta PC.\n%1")
-						.arg(QDir::toNativeSeparators(path));
-
-				for (ElementsCollectionModel *model : qApp->findChildren<ElementsCollectionModel *>())
-				{
-					for (int row = 0; row < model->rowCount(); ++row)
-					{
-						QStandardItem *raw = model->item(row);
-						if (!raw || raw->type() != FileElementCollectionItem::Type)
-							continue;
-						auto *item = static_cast<FileElementCollectionItem *>(raw);
-						if (!item->isCompanyCollection())
-							continue;
-						item->setText(label);
-						item->setToolTip(tooltip);
-					}
-				}
-			}
-
-			void decorateAll()
-			{
-				decorateTreePanels();
-				decorateModels();
+				QTimer::singleShot(300, this, [this]() { decorateAllViews(); });
+				QTimer::singleShot(1000, this, [this]() { decorateAllViews(); });
 			}
 
 		private:

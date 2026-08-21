@@ -37,13 +37,15 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
   endif()
 endif()
 
-# GIT_COMMIT_SHA is consumed only by sources/machine_info.cpp. Keeping it as
-# a directory-wide -D made every Git commit invalidate every C++ object, which
-# defeated the incremental JW-QET launcher and forced ~470 recompilations.
-# Scope the definition to the one source that needs it so future commits only
-# rebuild machine_info.cpp plus the final link step.
+# GIT_COMMIT_SHA is consumed by the About/machine information and by the
+# diagnostics/crash-report sources. Keeping it as a directory-wide -D made
+# every Git commit invalidate every C++ object, defeating the incremental
+# JW-QET launcher. Scope the definition to the actual consumers so a new
+# commit only rebuilds these few files plus the final link step.
 set_source_files_properties(
   "${QET_DIR}/sources/machine_info.cpp"
+  "${QET_DIR}/sources/logging/qetlogger.cpp"
+  "${QET_DIR}/sources/logging/crashhandler.cpp"
   PROPERTIES
   COMPILE_DEFINITIONS "GIT_COMMIT_SHA=\"${GIT_COMMIT_SHA}\""
 )

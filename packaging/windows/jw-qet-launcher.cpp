@@ -9,6 +9,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -17,7 +18,14 @@ namespace {
 constexpr wchar_t kWindowClass[] = L"JWQETLauncherWindow";
 constexpr wchar_t kMutexName[] = L"Local\\JW-QET-Launcher";
 constexpr UINT kWindowWidth = 470;
-constexpr UINT kWindowHeight = 126;
+constexpr UINT kWindowHeight = 184;
+constexpr int kProgressLeft = 24;
+constexpr int kProgressTop = 112;
+constexpr int kProgressWidth = 422;
+constexpr int kProgressHeight = 20;
+
+HWND gPhaseLabel = nullptr;
+int gProgress = 0;
 
 std::wstring moduleDirectory()
 {
@@ -97,16 +105,92 @@ std::wstring windowsErrorMessage(DWORD code)
     return result;
 }
 
+void drawProgressBar(HWND hwnd, HDC dc)
+{
+    RECT outer{
+        kProgressLeft,
+        kProgressTop,
+        kProgressLeft + kProgressWidth,
+        kProgressTop + kProgressHeight};
+
+    HBRUSH background = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+    FillRect(dc, &outer, background);
+    DeleteObject(background);
+    FrameRect(dc, &outer, reinterpret_cast<HBRUSH>(GetStockObject(GRAY_BRUSH)));
+
+    RECT inner = outer;
+    InflateRect(&inner, -2, -2);
+    const int inner_width = inner.right - inner.left;
+    const int filled_width = (inner_width * gProgress) / 100;
+
+    if (filled_width > 0)
+    {
+        RECT filled = inner;
+        filled.right = filled.left + filled_width;
+        HBRUSH fill = CreateSolidBrush(GetSysColor(COLOR_HIGHLIGHT));
+        FillRect(dc, &filled, fill);
+        DeleteObject(fill);
+    }
+
+    const std::wstring percentage = std::to_wstring(gProgress) + L"%";
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc,
+                 gProgress >= 52
+                     ? GetSysColor(COLOR_HIGHLIGHTTEXT)
+                     : GetSysColor(COLOR_WINDOWTEXT));
+    DrawTextW(dc,
+              percentage.c_str(),
+              static_cast<int>(percentage.size()),
+              &inner,
+              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+}
+
+void setLauncherProgress(HWND window, int progress, const wchar_t *phase)
+{
+    if (!window)
+        return;
+
+    if (progress < 0)
+        progress = 0;
+    if (progress > 100)
+        progress = 100;
+
+    // Milestones are monotonic; a late log line from an earlier phase must not
+    // make the bar jump backwards.
+    if (progress >= gProgress)
+        gProgress = progress;
+
+    if (phase && gPhaseLabel)
+        SetWindowTextW(gPhaseLabel, phase);
+
+    RECT progressRect{
+        kProgressLeft - 2,
+        kProgressTop - 2,
+        kProgressLeft + kProgressWidth + 2,
+        kProgressTop + kProgressHeight + 2};
+    InvalidateRect(window, &progressRect, TRUE);
+    UpdateWindow(window);
+}
+
 LRESULT CALLBACK launcherWindowProc(HWND hwnd, UINT message,
                                     WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
+    case WM_PAINT:
+    {
+        PAINTSTRUCT paint{};
+        HDC dc = BeginPaint(hwnd, &paint);
+        drawProgressBar(hwnd, dc);
+        EndPaint(hwnd, &paint);
+        return 0;
+    }
     case WM_CLOSE:
         // The update/build must finish atomically. Do not let an accidental
         // Alt+F4 leave Git or Ninja half-way through their work.
         MessageBeep(MB_ICONINFORMATION);
         return 0;
     case WM_DESTROY:
+        gPhaseLabel = nullptr;
         PostQuitMessage(0);
         return 0;
     default:
@@ -159,18 +243,35 @@ HWND createStatusWindow(HINSTANCE instance)
         L"QElectroTech se abrira automaticamente.",
         WS_CHILD | WS_VISIBLE | SS_CENTER,
         20,
-        24,
+        18,
         kWindowWidth - 40,
-        70,
+        58,
         window,
         nullptr,
         instance,
         nullptr);
 
-    if (label)
-        SendMessageW(label, WM_SETFONT,
-                     reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
+    gPhaseLabel = CreateWindowExW(
+        0,
+        L"STATIC",
+        L"Iniciando...",
+        WS_CHILD | WS_VISIBLE | SS_CENTER,
+        20,
+        82,
+        kWindowWidth - 40,
+        20,
+        window,
+        nullptr,
+        instance,
+        nullptr);
 
+    HFONT font = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    if (label)
+        SendMessageW(label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    if (gPhaseLabel)
+        SendMessageW(gPhaseLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    gProgress = 2;
     ShowWindow(window, SW_SHOWNORMAL);
     UpdateWindow(window);
     return window;
@@ -185,8 +286,143 @@ void pumpWindowMessages()
     }
 }
 
+struct LogProgressTracker
+{
+    unsigned long long offset = 0;
+    std::string tail;
+};
+
+bool containsText(const std::string &text, const char *needle)
+{
+    return text.find(needle) != std::string::npos;
+}
+
+void applyProgressFromLog(HWND window, const std::string &text)
+{
+    if (containsText(text, "JW QET - Sincronizando repositorio"))
+        setLauncherProgress(window, 10, L"Sincronizando repositorio...");
+
+    if (containsText(text, "Sincronizando submodulos"))
+        setLauncherProgress(window, 20, L"Sincronizando librerias y submodulos...");
+
+    if (containsText(text, "[OK] Repositorio sincronizado."))
+        setLauncherProgress(window, 30, L"Repositorio actualizado.");
+
+    if (containsText(text, "[1/2] Configurando CMake"))
+        setLauncherProgress(window, 38, L"Configurando CMake...");
+
+    if (containsText(text, "CMake ya configurado. Se reutiliza el cache."))
+        setLauncherProgress(window, 42, L"Configuracion reutilizada.");
+
+    const std::string buildMarker = "[2/2] Compilando incrementalmente...";
+    const std::string::size_type build_pos = text.rfind(buildMarker);
+    if (build_pos != std::string::npos)
+    {
+        setLauncherProgress(window, 48, L"Compilando cambios...");
+
+        int best_done = 0;
+        int best_total = 0;
+        for (std::string::size_type pos = build_pos; pos < text.size(); ++pos)
+        {
+            if (text[pos] != '[')
+                continue;
+
+            int done = 0;
+            int total = 0;
+            if (std::sscanf(text.c_str() + pos, "[%d/%d]", &done, &total) == 2
+                    && total > 0 && done >= 0 && done <= total)
+            {
+                best_done = done;
+                best_total = total;
+            }
+        }
+
+        if (best_total > 0)
+        {
+            const int compile_progress =
+                    50 + (42 * best_done) / best_total;
+            setLauncherProgress(window,
+                                compile_progress,
+                                L"Compilando cambios...");
+        }
+        else if (containsText(text, "ninja: no work to do."))
+        {
+            setLauncherProgress(window, 92, L"No hay cambios que recompilar.");
+        }
+    }
+
+    if (containsText(text, "[OK] Build de desarrollo listo:"))
+        setLauncherProgress(window, 95, L"Build listo. Preparando QElectroTech...");
+
+    if (containsText(text, "Iniciando QElectroTech en proceso independiente"))
+        setLauncherProgress(window, 98, L"Iniciando QElectroTech...");
+
+    if (containsText(text, "[OK] QElectroTech iniciado."))
+        setLauncherProgress(window, 100, L"QElectroTech iniciado.");
+}
+
+void pollLogProgress(const std::wstring &logPath,
+                     HWND window,
+                     LogProgressTracker &tracker)
+{
+    if (!window)
+        return;
+
+    HANDLE file = CreateFileW(
+        logPath.c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr);
+
+    if (file == INVALID_HANDLE_VALUE)
+        return;
+
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(file, &size)) {
+        CloseHandle(file);
+        return;
+    }
+
+    const unsigned long long file_size =
+            static_cast<unsigned long long>(size.QuadPart);
+    if (file_size < tracker.offset)
+    {
+        tracker.offset = 0;
+        tracker.tail.clear();
+    }
+
+    LARGE_INTEGER offset{};
+    offset.QuadPart = static_cast<LONGLONG>(tracker.offset);
+    if (!SetFilePointerEx(file, offset, nullptr, FILE_BEGIN)) {
+        CloseHandle(file);
+        return;
+    }
+
+    char buffer[16384];
+    DWORD bytes_read = 0;
+    while (ReadFile(file, buffer, sizeof(buffer), &bytes_read, nullptr)
+           && bytes_read > 0)
+    {
+        tracker.tail.append(buffer, buffer + bytes_read);
+        tracker.offset += bytes_read;
+    }
+    CloseHandle(file);
+
+    // Keep enough history for milestones and current Ninja progress without
+    // retaining an arbitrarily large compiler log in the launcher process.
+    constexpr std::size_t kMaxTail = 256 * 1024;
+    if (tracker.tail.size() > kMaxTail)
+        tracker.tail.erase(0, tracker.tail.size() - kMaxTail);
+
+    applyProgressFromLog(window, tracker.tail);
+}
+
 bool launchHiddenWorkflow(const std::wstring &repo,
                           const std::wstring &logPath,
+                          HWND statusWindow,
                           DWORD &exitCode,
                           std::wstring &error)
 {
@@ -248,6 +484,8 @@ bool launchHiddenWorkflow(const std::wstring &repo,
     std::vector<wchar_t> mutableCommand(commandLine.begin(), commandLine.end());
     mutableCommand.push_back(L'\0');
 
+    setLauncherProgress(statusWindow, 5, L"Iniciando flujo de actualizacion...");
+
     const BOOL created = CreateProcessW(
         cmd.c_str(),
         mutableCommand.data(),
@@ -273,8 +511,11 @@ bool launchHiddenWorkflow(const std::wstring &repo,
     }
 
     CloseHandle(process.hThread);
+    LogProgressTracker tracker;
 
     for (;;) {
+        pollLogProgress(logPath, statusWindow, tracker);
+
         const DWORD waitResult = MsgWaitForMultipleObjects(
             1,
             &process.hProcess,
@@ -298,12 +539,17 @@ bool launchHiddenWorkflow(const std::wstring &repo,
         }
     }
 
+    pollLogProgress(logPath, statusWindow, tracker);
+
     if (!GetExitCodeProcess(process.hProcess, &exitCode)) {
         error = L"No se pudo obtener el resultado del proceso.\r\n\r\n" +
                 windowsErrorMessage(GetLastError());
         CloseHandle(process.hProcess);
         return false;
     }
+
+    if (exitCode == 0)
+        setLauncherProgress(statusWindow, 100, L"QElectroTech iniciado.");
 
     CloseHandle(process.hProcess);
     return true;
@@ -359,7 +605,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 
     DWORD exitCode = 1;
     std::wstring error;
-    const bool started = launchHiddenWorkflow(repo, logPath, exitCode, error);
+    const bool started = launchHiddenWorkflow(
+        repo, logPath, statusWindow, exitCode, error);
 
     if (statusWindow)
         DestroyWindow(statusWindow);

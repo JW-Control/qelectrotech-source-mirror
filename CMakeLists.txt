@@ -142,7 +142,7 @@ else()
     )
 endif()
 
-# JW Control collaboration UI is kept outside the upstream source list so the
+# JW Control extensions are kept outside the upstream source list so the
 # integration remains incremental and easy to review/remove independently.
 # The workspace guard generates the collaboration source in the build tree so
 # missing Google Drive folders are never recreated silently by a second PC.
@@ -151,6 +151,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${QET_DIR}/sources/jwcollabpublisher.cpp
     ${JW_COLLAB_SELECTION_SOURCE}
     ${QET_DIR}/sources/jwcollabcontinuation.cpp
+    ${QET_DIR}/sources/jwsmartconductorsnap.cpp
 )
 
 # The default build only compiles the tracked .ts files to .qm (lrelease).
@@ -233,7 +234,7 @@ else()
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         COMMENT
             "Updating .ts files from sources/ (lupdate) - developer target"
-        VERBATIM
+            VERBATIM
     )
 endif()
 
@@ -346,7 +347,7 @@ if (NOT MINGW)
     if(UNIX AND NOT APPLE)
         install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION share/applications)
         install(FILES misc/qelectrotech.xml    DESTINATION ${QET_MIME_PACKAGE_PATH})
-        install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_APPDATA_PATH})
+        install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_MIME_PACKAGE_PATH})
     endif()
     install(FILES ${QM_FILES} DESTINATION ${QET_LANG_PATH})
 endif()

@@ -158,7 +158,7 @@ QString FileElementCollectionItem::localName()
 			if (m_path == QETApp::commonElementsDirN())
 				setText(QObject::tr("Collection QET"));
 			else if (m_path == QETApp::companyElementsDirN())
-				setText(QObject::tr("Collection Company"));
+				setText(QObject::tr("Colección JW Control"));
 			else if (m_path == QETApp::customElementsDirN())
 				setText(QObject::tr("Collection utilisateur"));
 			else if (m_path == macrosPath)
@@ -471,7 +471,6 @@ void FileElementCollectionItem::setUpIcon()
 				ElementsLocation loc(collectionPath());
 				setIcon(loc.icon());
 			}
-		}
 	}
 }
 

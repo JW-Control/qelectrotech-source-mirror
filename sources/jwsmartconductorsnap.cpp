@@ -122,7 +122,9 @@ void installJwSmartConductorSnapV2()
 
 void registerJwSmartConductorSnapV2()
 {
-    QCoreApplication::addPreRoutine(installJwSmartConductorSnapV2);
+    // Qt 5 exposes pre-routine registration as the global qAddPreRoutine()
+    // helper (QCoreApplication::addPreRoutine() does not exist there).
+    qAddPreRoutine(installJwSmartConductorSnapV2);
 }
 
 } // namespace

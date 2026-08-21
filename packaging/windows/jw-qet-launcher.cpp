@@ -318,18 +318,35 @@ void applyProgressFromLog(HWND window, const std::string &text)
     const std::string::size_type build_pos = text.rfind(buildMarker);
     if (build_pos != std::string::npos)
     {
-        setLauncherProgress(window, 48, L"Compilando cambios...");
+        setLauncherProgress(window, 48, L"Preparando compilacion...");
 
         int best_done = 0;
         int best_total = 0;
+        bool saw_cmake_rerun = false;
+
         for (std::string::size_type pos = build_pos; pos < text.size(); ++pos)
         {
             if (text[pos] != '[')
                 continue;
 
+            const std::string::size_type line_end = text.find('\n', pos);
+            const std::string line = text.substr(
+                pos,
+                line_end == std::string::npos ? std::string::npos : line_end - pos);
+
+            // Ninja may emit a tiny [0/1] -> [1/1] "Re-running CMake" step
+            // before the actual compile queue. Treating that as the build total
+            // made the launcher jump to 92% and then stay there because progress
+            // is intentionally monotonic.
+            if (line.find("Re-running CMake") != std::string::npos)
+            {
+                saw_cmake_rerun = true;
+                continue;
+            }
+
             int done = 0;
             int total = 0;
-            if (std::sscanf(text.c_str() + pos, "[%d/%d]", &done, &total) == 2
+            if (std::sscanf(line.c_str(), "[%d/%d]", &done, &total) == 2
                     && total > 0 && done >= 0 && done <= total)
             {
                 best_done = done;
@@ -340,14 +357,29 @@ void applyProgressFromLog(HWND window, const std::string &text)
         if (best_total > 0)
         {
             const int compile_progress =
-                    50 + (42 * best_done) / best_total;
+                    50 + (40 * best_done) / best_total;
+            const std::wstring phase =
+                    L"Compilando cambios... " +
+                    std::to_wstring(best_done) + L" / " +
+                    std::to_wstring(best_total);
             setLauncherProgress(window,
                                 compile_progress,
-                                L"Compilando cambios...");
+                                phase.c_str());
+
+            const std::string build_text = text.substr(build_pos);
+            if (build_text.find("Linking CXX executable qelectrotech.exe") !=
+                    std::string::npos)
+            {
+                setLauncherProgress(window, 93, L"Enlazando ejecutable...");
+            }
         }
-        else if (containsText(text, "ninja: no work to do."))
+        else if (containsText(text.substr(build_pos), "ninja: no work to do."))
         {
             setLauncherProgress(window, 92, L"No hay cambios que recompilar.");
+        }
+        else if (saw_cmake_rerun)
+        {
+            setLauncherProgress(window, 48, L"Reconfigurando CMake...");
         }
     }
 

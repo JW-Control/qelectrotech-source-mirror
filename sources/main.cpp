@@ -16,6 +16,7 @@
 	along with QElectroTech.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "cli_export.h"
+#include "jwcompanycollection.h"
 #include "logging/eventloopwatchdog.h"
 #include "logging/qetlogger.h"
 #include "machine_info.h"
@@ -173,8 +174,14 @@ QGuiApplication::setHighDpiScaleFactorRoundingPolicy(QetSettings::hdpiScaleFacto
 		return 0;
 	}
 
+	// Resolve JW Control's canonical Company Collection before QETApp builds
+	// the collection panels. The setting remains local to each PC, so G:/H:/
+	// differences never leak into project element URIs (which stay company://).
+	JWCompanyCollection::prepareSettings();
+
 	QETApp qetapp;
 	QETApp::instance()->installEventFilter(&qetapp);
+	JWCompanyCollection::install(&qetapp);
 #ifdef Q_OS_MACOS
 	//Handle the opening of QET when user double click on a .qet .elmt .tbt file
 	//or drop these same files to the QET icon of the dock.
@@ -210,4 +217,3 @@ QGuiApplication::setHighDpiScaleFactorRoundingPolicy(QetSettings::hdpiScaleFacto
 
 	return app.exec();
 }
-

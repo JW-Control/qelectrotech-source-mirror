@@ -471,6 +471,7 @@ void FileElementCollectionItem::setUpIcon()
 				ElementsLocation loc(collectionPath());
 				setIcon(loc.icon());
 			}
+		}
 	}
 }
 

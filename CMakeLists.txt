@@ -220,7 +220,7 @@ else()
     # Qt 5
     qt5_add_translation(QM_FILES ${TS_FILES})
 
-    # Likewise, qt5_add_translation() needs a target depending on its outputs,
+    # Likewise, qt5_add_translation() needs a target depending on their outputs,
     # unless QM_FILES are already consumed elsewhere.
     add_custom_target(${PROJECT_NAME}_lrelease ALL
         DEPENDS ${QM_FILES}
@@ -234,7 +234,7 @@ else()
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         COMMENT
             "Updating .ts files from sources/ (lupdate) - developer target"
-            VERBATIM
+        VERBATIM
     )
 endif()
 
@@ -347,7 +347,7 @@ if (NOT MINGW)
     if(UNIX AND NOT APPLE)
         install(FILES misc/org.qelectrotech.qelectrotech.desktop DESTINATION share/applications)
         install(FILES misc/qelectrotech.xml    DESTINATION ${QET_MIME_PACKAGE_PATH})
-        install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_MIME_PACKAGE_PATH})
+        install(FILES misc/qelectrotech.appdata.xml DESTINATION ${QET_APPDATA_PATH})
     endif()
     install(FILES ${QM_FILES} DESTINATION ${QET_LANG_PATH})
 endif()

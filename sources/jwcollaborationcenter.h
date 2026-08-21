@@ -14,6 +14,8 @@
 #include "qetdiagrameditor.h"
 #include "qetproject.h"
 
+#include <algorithm>
+#include <QAction>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -65,8 +67,8 @@ namespace JWCollaborationCenter
 
 	inline QString masterPath(const QString &workspace)
 	{
-		QDir master_dir(QDir(workspace).absoluteFilePath(QStringLiteral("00_MASTER")));
-		const QFileInfoList files = master_dir.entryInfoList(
+		QDir directory(QDir(workspace).absoluteFilePath(QStringLiteral("00_MASTER")));
+		const QFileInfoList files = directory.entryInfoList(
 				QStringList() << QStringLiteral("*.qet"), QDir::Files, QDir::Name);
 		return files.isEmpty() ? QString() : files.first().absoluteFilePath();
 	}
@@ -106,13 +108,18 @@ namespace JWCollaborationCenter
 		return result;
 	}
 
+	inline QString compactFolio(const QString &key)
+	{
+		return key.startsWith(QStringLiteral("order:"), Qt::CaseInsensitive)
+				? key.mid(QStringLiteral("order:").size()) : key;
+	}
+
 	inline QMap<QString, QString> folioLabels(const QString &qet_path)
 	{
 		QMap<QString, QString> labels;
 		QFile file(qet_path);
 		if (!file.open(QIODevice::ReadOnly))
 			return labels;
-
 		QDomDocument document;
 		if (!document.setContent(&file))
 			return labels;
@@ -135,13 +142,6 @@ namespace JWCollaborationCenter
 		return labels;
 	}
 
-	inline QString folioCompact(const QString &key)
-	{
-		if (key.startsWith(QStringLiteral("order:"), Qt::CaseInsensitive))
-			return key.mid(QStringLiteral("order:").size());
-		return key;
-	}
-
 	inline QString statusLabel(const QString &status)
 	{
 		if (status == QStringLiteral("checked_out"))
@@ -158,7 +158,7 @@ namespace JWCollaborationCenter
 	struct DeliveryInfo
 	{
 		QString user;
-		QString user_slug;
+		QString slug;
 		QDateTime submitted_at;
 		QString baseline_sha256;
 		bool stale = false;
@@ -187,11 +187,11 @@ namespace JWCollaborationCenter
 
 				DeliveryInfo info;
 				info.user = json.value(QStringLiteral("user")).toString().trimmed();
-				info.user_slug = json.value(QStringLiteral("user_slug")).toString().trimmed();
-				if (info.user_slug.isEmpty())
-					info.user_slug = info.user;
+				info.slug = json.value(QStringLiteral("user_slug")).toString().trimmed();
+				if (info.slug.isEmpty())
+					info.slug = info.user;
 				if (info.user.isEmpty())
-					info.user = info.user_slug;
+					info.user = info.slug;
 				info.submitted_at = QDateTime::fromString(
 						json.value(QStringLiteral("submitted_at")).toString(), Qt::ISODate);
 				if (!info.submitted_at.isValid())
@@ -199,10 +199,9 @@ namespace JWCollaborationCenter
 				info.baseline_sha256 = json.value(QStringLiteral("baseline_sha256")).toString();
 				info.stale = !master_hash.isEmpty() && !info.baseline_sha256.isEmpty()
 						&& info.baseline_sha256 != master_hash;
-
-				if (!latest.contains(info.user_slug)
-						|| info.submitted_at > latest.value(info.user_slug).submitted_at)
-					latest.insert(info.user_slug, info);
+				if (!latest.contains(info.slug)
+						|| info.submitted_at > latest.value(info.slug).submitted_at)
+					latest.insert(info.slug, info);
 			}
 		}
 
@@ -223,9 +222,9 @@ namespace JWCollaborationCenter
 				layout->setContentsMargins(8, 8, 8, 8);
 				layout->setSpacing(8);
 
-				m_title = new QLabel(QStringLiteral("<b>%1</b>").arg(QObject::tr("Centro de colaboración")), this);
-				m_title->setWordWrap(true);
-				layout->addWidget(m_title);
+				auto *title = new QLabel(QStringLiteral("<b>%1</b>").arg(QObject::tr("Centro de colaboración")), this);
+				title->setWordWrap(true);
+				layout->addWidget(title);
 
 				auto *session_group = new QGroupBox(QObject::tr("Sesión"), this);
 				auto *session_layout = new QVBoxLayout(session_group);
@@ -235,46 +234,57 @@ namespace JWCollaborationCenter
 				session_layout->addWidget(m_session);
 				layout->addWidget(session_group);
 
-				auto *folios_group = new QGroupBox(QObject::tr("Mis folios"), this);
-				auto *folios_layout = new QVBoxLayout(folios_group);
-				m_folios = new QListWidget(folios_group);
-				m_folios->setMaximumHeight(155);
-				folios_layout->addWidget(m_folios);
-				layout->addWidget(folios_group);
-
-				auto *team_group = new QGroupBox(QObject::tr("Equipo"), this);
-				auto *team_layout = new QVBoxLayout(team_group);
-				m_team = new QListWidget(team_group);
-				m_team->setMaximumHeight(125);
-				team_layout->addWidget(m_team);
-				layout->addWidget(team_group);
-
-				auto *deliveries_group = new QGroupBox(QObject::tr("Entregas pendientes"), this);
-				auto *deliveries_layout = new QVBoxLayout(deliveries_group);
-				m_deliveries = new QListWidget(deliveries_group);
-				m_deliveries->setMaximumHeight(115);
-				deliveries_layout->addWidget(m_deliveries);
-				layout->addWidget(deliveries_group);
+				m_folios = addListGroup(layout, QObject::tr("Mis folios"), 155);
+				m_team = addListGroup(layout, QObject::tr("Equipo"), 125);
+				m_deliveries = addListGroup(layout, QObject::tr("Entregas pendientes"), 115);
 
 				auto *buttons = new QHBoxLayout();
-				m_refresh = new QPushButton(QObject::tr("Actualizar"), this);
+				auto *refresh_button = new QPushButton(QObject::tr("Actualizar"), this);
 				m_submit = new QPushButton(QObject::tr("Entregar cambios"), this);
-				buttons->addWidget(m_refresh);
+				buttons->addWidget(refresh_button);
 				buttons->addWidget(m_submit, 1);
 				layout->addLayout(buttons);
 				layout->addStretch(1);
 
-				connect(m_refresh, &QPushButton::clicked, this, [this]() { refresh(); });
-				connect(m_submit, &QPushButton::clicked, this, [this]() {
-					if (m_editor)
-						m_editor->submitCollaborativeChanges();
-					refresh();
-				});
+				connect(refresh_button, &QPushButton::clicked, this, [this]() { refresh(); });
+				connect(m_submit, &QPushButton::clicked, this, [this]() { triggerSubmit(); });
 
 				m_timer.setInterval(2500);
 				connect(&m_timer, &QTimer::timeout, this, [this]() { refresh(); });
 				m_timer.start();
 				refresh();
+			}
+
+		private:
+			QListWidget *addListGroup(QVBoxLayout *layout, const QString &title, int max_height)
+			{
+				auto *group = new QGroupBox(title, this);
+				auto *group_layout = new QVBoxLayout(group);
+				auto *list = new QListWidget(group);
+				list->setMaximumHeight(max_height);
+				group_layout->addWidget(list);
+				layout->addWidget(group);
+				return list;
+			}
+
+			QAction *actionContaining(const QString &needle) const
+			{
+				if (!m_editor)
+					return nullptr;
+				for (QAction *action : m_editor->findChildren<QAction *>())
+					if (action && action->text().contains(needle, Qt::CaseInsensitive))
+						return action;
+				return nullptr;
+			}
+
+			void triggerSubmit()
+			{
+				// Trigger the menu action rather than calling QETDiagramEditor's
+				// legacy slot directly. jwcollabselection rewires this QAction to
+				// the protected v2 submit workflow (folio sanitation + guards).
+				if (QAction *action = actionContaining(QStringLiteral("Entregar cambios colaborativos")))
+					action->trigger();
+				QTimer::singleShot(300, this, [this]() { refresh(); });
 			}
 
 			void refresh()
@@ -301,8 +311,7 @@ namespace JWCollaborationCenter
 				const QJsonObject manifest = readJson(manifestForQet(qet_path));
 				const QString user = manifest.value(QStringLiteral("user")).toString().trimmed();
 				const QString status = manifest.value(QStringLiteral("status")).toString().trimmed();
-				const QString master = masterPath(workspace);
-				const QString master_hash = sha256File(master);
+				const QString master_hash = sha256File(masterPath(workspace));
 				const QString baseline_hash = manifest.value(QStringLiteral("baseline_sha256")).toString();
 				const bool master_changed = !master_hash.isEmpty() && !baseline_hash.isEmpty()
 						&& master_hash != baseline_hash;
@@ -325,7 +334,8 @@ namespace JWCollaborationCenter
 						m_folios->addItem(labels.value(key, key));
 
 				QMap<QString, QString> profile_names;
-				const QJsonObject registry = readJson(QDir(hiddenRoot(workspace)).absoluteFilePath(QStringLiteral("profiles.json")));
+				const QJsonObject registry = readJson(
+						QDir(hiddenRoot(workspace)).absoluteFilePath(QStringLiteral("profiles.json")));
 				for (const QJsonValue &value : registry.value(QStringLiteral("profiles")).toArray())
 				{
 					const QJsonObject entry = value.toObject();
@@ -341,7 +351,8 @@ namespace JWCollaborationCenter
 				for (auto it = reservations.begin(); it != reservations.end(); ++it)
 				{
 					const QJsonObject entry = it.value().toObject();
-					const QString name = entry.value(QStringLiteral("user")).toString(profile_names.value(it.key(), it.key()));
+					const QString name = entry.value(QStringLiteral("user"))
+							.toString(profile_names.value(it.key(), it.key()));
 					profile_names.insert(it.key(), name);
 				}
 
@@ -355,8 +366,9 @@ namespace JWCollaborationCenter
 						const QStringList keys = stringArray(reservation.value(QStringLiteral("folios")));
 						QStringList numbers;
 						for (const QString &key : keys)
-							numbers << folioCompact(key);
-						const bool current = !user.isEmpty() && it.value().compare(user, Qt::CaseInsensitive) == 0;
+							numbers << compactFolio(key);
+						const bool current = !user.isEmpty()
+								&& it.value().compare(user, Qt::CaseInsensitive) == 0;
 						const QString prefix = current ? QStringLiteral("● ") : QStringLiteral("○ ");
 						const QString folios = numbers.isEmpty()
 								? QObject::tr("sin reservas")
@@ -381,17 +393,16 @@ namespace JWCollaborationCenter
 					}
 				}
 
-				m_submit->setEnabled(status == QStringLiteral("checked_out"));
+				m_submit->setEnabled(status == QStringLiteral("checked_out")
+						&& actionContaining(QStringLiteral("Entregar cambios colaborativos")));
 			}
 
 		private:
 			QETDiagramEditor *m_editor = nullptr;
-			QLabel *m_title = nullptr;
 			QLabel *m_session = nullptr;
 			QListWidget *m_folios = nullptr;
 			QListWidget *m_team = nullptr;
 			QListWidget *m_deliveries = nullptr;
-			QPushButton *m_refresh = nullptr;
 			QPushButton *m_submit = nullptr;
 			QTimer m_timer;
 	};

@@ -86,9 +86,11 @@ class JwSmartConductorSnapViewBinder final : public QObject
 };
 
 JwSmartConductorSnapViewBinder *s_smart_snap_view_binder = nullptr;
+bool s_smart_snap_v2_start_queued = false;
 
-void installJwSmartConductorSnapV2()
+void startJwSmartConductorSnapV2()
 {
+    s_smart_snap_v2_start_queued = false;
     if (!qApp || s_smart_snap_view_binder) {
         return;
     }
@@ -101,6 +103,21 @@ void installJwSmartConductorSnapV2()
 
     s_smart_snap_view_binder =
             new JwSmartConductorSnapViewBinder(qApp);
+}
+
+void installJwSmartConductorSnapV2()
+{
+    if (!qApp || s_smart_snap_view_binder || s_smart_snap_v2_start_queued) {
+        return;
+    }
+
+    // Pre-routines run while QApplication is still being constructed. Defer
+    // timer creation and widget discovery until Qt enters its normal event
+    // processing lifecycle.
+    s_smart_snap_v2_start_queued = true;
+    QTimer::singleShot(0, qApp, []() {
+        startJwSmartConductorSnapV2();
+    });
 }
 
 void registerJwSmartConductorSnapV2()

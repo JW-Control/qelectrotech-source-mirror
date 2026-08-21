@@ -25,12 +25,15 @@
 #include <QPointer>
 #include <QTimer>
 #include <QUndoCommand>
+#include <QVector>
 
 #include <limits>
 
 namespace {
 
 constexpr int kSnapRadiusPixels = 14;
+constexpr qreal kReleaseHysteresisFactor = 1.35;
+constexpr int kPointerWatchdogMs = 60;
 constexpr qreal kGeometryEpsilon = 0.25;
 
 struct SnapCandidate
@@ -45,6 +48,15 @@ struct SnapCandidate
     {
         return conductor && segmentIndex >= 0;
     }
+};
+
+struct SnapSegment
+{
+    QPointer<Conductor> conductor;
+    QPointF first;
+    QPointF second;
+    int segmentIndex = -1;
+    bool horizontal = false;
 };
 
 QGraphicsView *graphicsViewForObject(QObject *object)
@@ -192,21 +204,19 @@ qreal distanceToOrthogonalSegment(const QPointF &mouse_scene_pos,
     return QLineF(mouse_scene_pos, raw_projection).length();
 }
 
-SnapCandidate findSnapCandidate(Diagram *diagram,
-                                Terminal *source,
-                                const QPointF &mouse_scene_pos,
-                                qreal radius)
+QVector<SnapSegment> buildSnapSegments(Diagram *diagram, Terminal *source)
 {
-    SnapCandidate best;
+    QVector<SnapSegment> cached_segments;
     if (!diagram || !source || diagram->isReadOnly()) {
-        return best;
+        return cached_segments;
     }
-
-    const QPointF source_dock = source->dockConductor();
 
     for (Conductor *conductor : diagram->conductors())
     {
-        if (!conductor || conductor->terminal1 == source || conductor->terminal2 == source) {
+        if (!conductor
+                || conductor->terminal1 == source
+                || conductor->terminal2 == source)
+        {
             continue;
         }
 
@@ -224,30 +234,65 @@ SnapCandidate findSnapCandidate(Diagram *diagram,
                 continue;
             }
 
-            const QPointF p1 = conductor->mapToScene(segment->firstPoint());
-            const QPointF p2 = conductor->mapToScene(segment->secondPoint());
-            const qreal distance = distanceToOrthogonalSegment(
-                    mouse_scene_pos, p1, p2, horizontal);
-
-            // V1.1 uses distance to the cable itself, not distance to the
-            // source terminal's projection. This makes upward/downward and
-            // diagonal mouse approaches behave symmetrically.
-            if (distance > radius || distance >= best.distance) {
-                continue;
-            }
-
-            const QPointF snap_point = closestPointOnSegment(
-                    mouse_scene_pos, p1, p2, horizontal);
-            if (QLineF(source_dock, snap_point).length() <= kGeometryEpsilon) {
-                continue;
-            }
-
-            best.conductor = conductor;
-            best.scenePoint = snap_point;
-            best.segmentIndex = index;
-            best.segmentHorizontal = horizontal;
-            best.distance = distance;
+            SnapSegment cached;
+            cached.conductor = conductor;
+            cached.first = conductor->mapToScene(segment->firstPoint());
+            cached.second = conductor->mapToScene(segment->secondPoint());
+            cached.segmentIndex = index;
+            cached.horizontal = horizontal;
+            cached_segments.append(cached);
         }
+    }
+
+    return cached_segments;
+}
+
+SnapCandidate findSnapCandidate(Terminal *source,
+                                const QPointF &mouse_scene_pos,
+                                qreal radius,
+                                const QVector<SnapSegment> &cached_segments)
+{
+    SnapCandidate best;
+    if (!source) {
+        return best;
+    }
+
+    const QPointF source_dock = source->dockConductor();
+
+    // Geometry is cached once when the drag starts. QET deliberately runs its
+    // QGraphicsScene without a spatial index, so rebuilding every conductor's
+    // segment list on every mouse move was noticeably expensive on real pages.
+    for (const SnapSegment &segment : cached_segments)
+    {
+        Conductor *conductor = segment.conductor.data();
+        if (!conductor) {
+            continue;
+        }
+
+        const qreal distance = distanceToOrthogonalSegment(
+                mouse_scene_pos,
+                segment.first,
+                segment.second,
+                segment.horizontal);
+
+        if (distance > radius || distance >= best.distance) {
+            continue;
+        }
+
+        const QPointF snap_point = closestPointOnSegment(
+                mouse_scene_pos,
+                segment.first,
+                segment.second,
+                segment.horizontal);
+        if (QLineF(source_dock, snap_point).length() <= kGeometryEpsilon) {
+            continue;
+        }
+
+        best.conductor = conductor;
+        best.scenePoint = snap_point;
+        best.segmentIndex = segment.segmentIndex;
+        best.segmentHorizontal = segment.horizontal;
+        best.distance = distance;
     }
 
     return best;
@@ -567,6 +612,17 @@ class JwSmartConductorSnapFilter final : public QObject
         explicit JwSmartConductorSnapFilter(QObject *parent = nullptr) :
             QObject(parent)
         {
+            m_pointer_watchdog.setInterval(kPointerWatchdogMs);
+            connect(&m_pointer_watchdog, &QTimer::timeout, this, [this]() {
+                if (QApplication::mouseButtons() & Qt::LeftButton) {
+                    return;
+                }
+
+                // Windows can steal the release while taking a screenshot or
+                // switching applications. If QET never receives that release,
+                // kill the preview here instead of leaving a dashed wire hanging.
+                cancelTrackedPreview();
+            });
         }
 
     protected:
@@ -577,26 +633,34 @@ class JwSmartConductorSnapFilter final : public QObject
             }
 
             // Cancel paths must work even when the pointer has already left
-            // the QGraphicsView. This prevents QET's dashed conductor preview
-            // from remaining orphaned after Esc, focus loss or an interrupted
-            // drag.
-            if (m_source)
+            // the QGraphicsView. ApplicationStateChange covers Windows shell
+            // overlays (notably Win+Shift+S) that do not always deliver the
+            // same deactivate sequence as a normal Alt+Tab.
+            if (event->type() == QEvent::ApplicationDeactivate
+                    || event->type() == QEvent::WindowDeactivate
+                    || (event->type() == QEvent::ApplicationStateChange
+                        && QApplication::applicationState() != Qt::ApplicationActive))
             {
-                if (event->type() == QEvent::KeyPress)
-                {
-                    auto *key_event = static_cast<QKeyEvent *>(event);
-                    if (key_event->key() == Qt::Key_Escape)
-                    {
-                        cancelDrag();
-                        return false;
-                    }
+                if (m_source || m_recent_diagram) {
+                    cancelTrackedPreview();
                 }
-                else if (event->type() == QEvent::ApplicationDeactivate
-                         || event->type() == QEvent::WindowDeactivate)
+                return false;
+            }
+
+            if (m_source && event->type() == QEvent::KeyPress)
+            {
+                auto *key_event = static_cast<QKeyEvent *>(event);
+                if (key_event->key() == Qt::Key_Escape)
                 {
-                    cancelDrag();
+                    cancelTrackedPreview();
                     return false;
                 }
+            }
+
+            if (m_source && event->type() == QEvent::UngrabMouse)
+            {
+                cancelTrackedPreview();
+                return false;
             }
 
             if (event->type() != QEvent::MouseButtonPress
@@ -612,7 +676,7 @@ class JwSmartConductorSnapFilter final : public QObject
             {
                 if (m_source && mouse_event->button() != Qt::LeftButton)
                 {
-                    cancelDrag();
+                    cancelTrackedPreview();
                     return false;
                 }
 
@@ -630,13 +694,53 @@ class JwSmartConductorSnapFilter final : public QObject
                     return false;
                 }
 
+                cancelTrackedPreview();
+                m_recent_diagram = diagram;
+                m_pointer_watchdog.start();
+
                 const QPointF scene_pos = scenePositionForEvent(
                         watched, view, mouse_event);
 
-                cancelDrag();
-                m_source = terminalAt(diagram, scene_pos);
-                m_diagram = m_source ? diagram : nullptr;
-                m_view = m_source ? view : nullptr;
+                Terminal *source = terminalAt(diagram, scene_pos);
+                if (source) {
+                    beginDrag(source, diagram, view);
+                }
+
+                // Our viewport hit-test runs before QGraphicsScene dispatches
+                // the press. If a theme/zoom edge case misses the terminal,
+                // ask QET which item actually became the native mouse grabber
+                // once the press has finished processing.
+                const QPointer<Diagram> diagram_guard = diagram;
+                const QPointer<QGraphicsView> view_guard = view;
+                QTimer::singleShot(0, this, [this, diagram_guard, view_guard]() {
+                    if (!diagram_guard || !view_guard || m_source) {
+                        return;
+                    }
+
+                    auto *native_source = qgraphicsitem_cast<Terminal *>(
+                            diagram_guard->mouseGrabberItem());
+                    if (native_source
+                            && native_source->diagram() == diagram_guard)
+                    {
+                        beginDrag(
+                                native_source,
+                                diagram_guard.data(),
+                                view_guard.data());
+                    }
+                });
+                return false;
+            }
+
+            // Even if our source-terminal detection failed, a left-button
+            // release must never leave QET's native conductor setter visible.
+            if (event->type() == QEvent::MouseButtonRelease
+                    && mouse_event->button() == Qt::LeftButton
+                    && !m_source)
+            {
+                if (m_recent_diagram) {
+                    m_recent_diagram->setConductor(false);
+                }
+                m_pointer_watchdog.stop();
                 return false;
             }
 
@@ -658,24 +762,15 @@ class JwSmartConductorSnapFilter final : public QObject
             {
                 if (!(mouse_event->buttons() & Qt::LeftButton))
                 {
-                    cancelDrag();
-                    return false;
-                }
-
-                // A real terminal always has priority. Native QET keeps its
-                // existing terminal-to-terminal hover colours and rules.
-                Terminal *hover_terminal = terminalAt(diagram, scene_pos);
-                if (hover_terminal && hover_terminal != m_source)
-                {
-                    clearSnapHighlight();
+                    cancelTrackedPreview();
                     return false;
                 }
 
                 const SnapCandidate candidate = findSnapCandidate(
-                        diagram,
                         m_source,
                         scene_pos,
-                        sceneSnapRadius(view));
+                        m_snap_radius,
+                        m_snap_segments);
 
                 if (!candidate.isValid())
                 {
@@ -683,23 +778,19 @@ class JwSmartConductorSnapFilter final : public QObject
                     return false;
                 }
 
-                setSnapHighlight(candidate);
+                // Only pay for the scene hit-test when we are actually near a
+                // snap target. Native QET already does its own item lookup on
+                // every move, so avoiding our duplicate lookup in open space
+                // noticeably reduces pointer drag cost.
+                Terminal *hover_terminal = terminalAt(diagram, scene_pos);
+                if (hover_terminal && hover_terminal != m_source)
+                {
+                    clearSnapHighlight();
+                    return false;
+                }
 
-                // Application event filters run before QGraphicsView dispatches
-                // the move to Terminal. Let QET process its native move, then
-                // re-apply the snapped preview endpoint at the end of this
-                // event-loop turn. Every queued callback reads the latest snap,
-                // so stale mouse moves cannot resurrect an old target.
-                const QPointer<Diagram> diagram_guard = diagram;
-                QTimer::singleShot(0, this, [this, diagram_guard]() {
-                    if (diagram_guard
-                            && m_diagram == diagram_guard
-                            && m_active_snap.isValid())
-                    {
-                        diagram_guard->setConductorStop(
-                                m_active_snap.scenePoint);
-                    }
-                });
+                setSnapHighlight(candidate);
+                scheduleSnapPreviewUpdate(diagram);
                 return false;
             }
 
@@ -708,6 +799,8 @@ class JwSmartConductorSnapFilter final : public QObject
                 if (mouse_event->button() != Qt::LeftButton) {
                     return false;
                 }
+
+                m_pointer_watchdog.stop();
 
                 // Always stop QET's native dashed preview ourselves. Native
                 // Terminal::mouseReleaseEvent will also do it when it receives
@@ -723,11 +816,22 @@ class JwSmartConductorSnapFilter final : public QObject
                     return false;
                 }
 
-                const SnapCandidate candidate = findSnapCandidate(
-                        diagram,
+                SnapCandidate candidate = findSnapCandidate(
                         m_source,
                         scene_pos,
-                        sceneSnapRadius(view));
+                        m_snap_radius,
+                        m_snap_segments);
+
+                // Small release hysteresis: if the cable was visibly snapped
+                // immediately before release, do not lose the branch because
+                // the final OS mouse sample landed a few pixels outside the
+                // hover radius.
+                if (!candidate.isValid() && m_active_snap.isValid()
+                        && QLineF(scene_pos, m_active_snap.scenePoint).length()
+                           <= m_snap_radius * kReleaseHysteresisFactor)
+                {
+                    candidate = m_active_snap;
+                }
 
                 if (!candidate.isValid())
                 {
@@ -755,6 +859,46 @@ class JwSmartConductorSnapFilter final : public QObject
         }
 
     private:
+        void beginDrag(Terminal *source,
+                       Diagram *diagram,
+                       QGraphicsView *view)
+        {
+            if (!source || !diagram || !view) {
+                return;
+            }
+
+            m_source = source;
+            m_diagram = diagram;
+            m_view = view;
+            m_recent_diagram = diagram;
+            m_snap_radius = sceneSnapRadius(view);
+            m_snap_segments = buildSnapSegments(diagram, source);
+
+            if (!m_pointer_watchdog.isActive()) {
+                m_pointer_watchdog.start();
+            }
+        }
+
+        void scheduleSnapPreviewUpdate(Diagram *diagram)
+        {
+            if (!diagram || m_preview_update_pending) {
+                return;
+            }
+
+            m_preview_update_pending = true;
+            const QPointer<Diagram> diagram_guard = diagram;
+            QTimer::singleShot(0, this, [this, diagram_guard]() {
+                m_preview_update_pending = false;
+                if (diagram_guard
+                        && m_diagram == diagram_guard
+                        && m_active_snap.isValid())
+                {
+                    diagram_guard->setConductorStop(
+                            m_active_snap.scenePoint);
+                }
+            });
+        }
+
         void clearSnapHighlight()
         {
             if (m_highlighted_conductor) {
@@ -787,27 +931,39 @@ class JwSmartConductorSnapFilter final : public QObject
 
         void resetDrag()
         {
+            m_pointer_watchdog.stop();
             clearSnapHighlight();
+            m_snap_segments.clear();
+            m_snap_radius = 12.0;
+            m_preview_update_pending = false;
             m_source = nullptr;
             m_diagram = nullptr;
             m_view = nullptr;
         }
 
-        void cancelDrag()
+        void cancelTrackedPreview()
         {
-            if (m_diagram) {
-                m_diagram->setConductor(false);
-            }
+            QPointer<Diagram> diagram = m_diagram
+                    ? m_diagram
+                    : m_recent_diagram;
             resetDrag();
+            if (diagram) {
+                diagram->setConductor(false);
+            }
         }
 
     private:
         QPointer<Terminal> m_source;
         QPointer<Diagram> m_diagram;
+        QPointer<Diagram> m_recent_diagram;
         QPointer<QGraphicsView> m_view;
         QPointer<Conductor> m_highlighted_conductor;
         Conductor::Highlight m_previous_highlight = Conductor::None;
         SnapCandidate m_active_snap;
+        QVector<SnapSegment> m_snap_segments;
+        QTimer m_pointer_watchdog;
+        qreal m_snap_radius = 12.0;
+        bool m_preview_update_pending = false;
 };
 
 JwSmartConductorSnapFilter *s_smart_conductor_snap_filter = nullptr;

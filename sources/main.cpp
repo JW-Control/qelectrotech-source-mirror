@@ -16,6 +16,7 @@
 	along with QElectroTech.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "cli_export.h"
+#include "jwcollaborationcenter.h"
 #include "jwcompanycollection.h"
 #include "logging/eventloopwatchdog.h"
 #include "logging/qetlogger.h"
@@ -182,6 +183,7 @@ QGuiApplication::setHighDpiScaleFactorRoundingPolicy(QetSettings::hdpiScaleFacto
 	QETApp qetapp;
 	QETApp::instance()->installEventFilter(&qetapp);
 	JWCompanyCollection::install(&qetapp);
+	JWCollaborationCenter::install(&qetapp);
 #ifdef Q_OS_MACOS
 	//Handle the opening of QET when user double click on a .qet .elmt .tbt file
 	//or drop these same files to the QET icon of the dock.
